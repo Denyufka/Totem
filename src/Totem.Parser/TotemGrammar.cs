@@ -2,7 +2,7 @@
 
 namespace Totem.Compiler
 {
-    [Language("Totem", "0.1", "A totem parser")]
+    [Language("Totem", "0.2", "A totem parser")]
     public partial class TotemGrammar : Irony.Parsing.Grammar
     {
         public TotemGrammar()
@@ -51,6 +51,23 @@ namespace Totem.Compiler
             var bin_op_expression = new NonTerminal("bin_op_expression");
             var bin_op = new NonTerminal("bin_op", "operator symbol");
 
+            var parameter = new NonTerminal("parameter");
+            var parameter_list = new NonTerminal("parameter_list");
+            var parameter_list_opt = new NonTerminal("parameter_list_opt");
+
+            var argument = new NonTerminal("argument");
+            var argument_list = new NonTerminal("argument_list");
+            var argument_list_opt = new NonTerminal("argument_list_opt");
+            var argument_list_par = new NonTerminal("argument_list_par");
+
+            var function_call = new NonTerminal("function_call");
+
+            var return_expression = new NonTerminal("return_expression");
+
+            var member_access_segment = new NonTerminal("member_access_segment");
+            var member_access_segment_list = new NonTerminal("member_access_segment_list");
+            var member_access_segment_list_opt = new NonTerminal("member_access_segment_list_opt");
+
             // Statements
             var statement = new NonTerminal("statement", "statement");
             var statement_list = new NonTerminal("statement_list");
@@ -60,6 +77,7 @@ namespace Totem.Compiler
             var local_variable_declaration = new NonTerminal("local_variable_declaration");
             var local_variable_declarator = new NonTerminal("local_variable_declarator");
             var local_variable_declarators = new NonTerminal("local_variable_declarators");
+            var local_function_declaration = new NonTerminal("local_function_declaration");
             var block = new NonTerminal("block");
             var statement_expression = new NonTerminal("statement_expression");
 
@@ -102,7 +120,17 @@ namespace Totem.Compiler
             primary_expression.Rule = literal | member_access;
             literal.Rule = number | strings | "true" | "false" | "null" | "undefined";
             initializer_value.Rule = expression;
-            member_access.Rule = identifier;
+            member_access.Rule = identifier + member_access_segment_list_opt;
+            return_expression.Rule = ToTerm("return") + expression;
+
+            member_access_segment.Rule = dot + identifier | argument_list_par;
+            member_access_segment_list.Rule = MakePlusRule(member_access_segment_list, null, member_access_segment);
+            member_access_segment_list_opt.Rule = Empty | member_access_segment_list;
+
+            argument.Rule = expression | identifier + ":" + expression;
+            argument_list.Rule = MakePlusRule(argument_list, comma, argument);
+            argument_list_opt.Rule = Empty | argument_list;
+            argument_list_par.Rule = lpar + argument_list_opt + rpar;
 
             bin_op.Rule = ToTerm("+") | "-";
             assignment_operator.Rule = ToTerm("=") | "+=" | "-=";
@@ -113,12 +141,18 @@ namespace Totem.Compiler
             statement_list.Rule = MakePlusRule(statement_list, null, statement);
             statement_list_opt.Rule = Empty | statement_list;
 
-            declaration_statement.Rule = local_variable_declaration + semi;
+            parameter.Rule = identifier | identifier + "=" + expression;
+            parameter_list.Rule = MakePlusRule(parameter_list, comma, parameter);
+            parameter_list_opt.Rule = Empty | parameter_list;
+
+            declaration_statement.Rule = local_variable_declaration + semi | local_function_declaration;
             local_variable_declaration.Rule = vark + local_variable_declarators;
             local_variable_declarator.Rule = identifier | identifier + "=" + initializer_value;
             local_variable_declarators.Rule = MakePlusRule(local_variable_declarators, comma, local_variable_declarator);
+            local_function_declaration.Rule = ToTerm("function") + identifier + "(" + parameter_list_opt + ")" + block;
 
-            embedded_statement.Rule = block | semi /* Empty statement */ | statement_expression + semi;
+            embedded_statement.Rule = block | semi /* Empty statement */ | statement_expression + semi | return_expression + semi | function_call + semi;
+            function_call.Rule = member_access;
 
             block.Rule = lbr + statement_list_opt + rbr;
 

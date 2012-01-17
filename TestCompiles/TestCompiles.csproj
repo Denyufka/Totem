@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{A17191AB-EE15-4105-9029-BE7B3007914A}</ProjectGuid>
+    <ProjectGuid>{56A35945-1B79-47F7-9D0C-51EA024A89F6}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Totem.Library</RootNamespace>
-    <AssemblyName>Totem.Library</AssemblyName>
+    <RootNamespace>TestCompiles</RootNamespace>
+    <AssemblyName>TestCompiles</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -40,16 +40,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Class1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TotemArguments.cs" />
-    <Compile Include="TotemEnvoronment.cs" />
-    <Compile Include="TotemFunction.cs" />
-    <Compile Include="TotemNull.cs" />
-    <Compile Include="TotemNumber.cs" />
-    <Compile Include="TotemParameter.cs" />
-    <Compile Include="TotemString.cs" />
-    <Compile Include="TotemUndefined.cs" />
-    <Compile Include="TotemValue.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

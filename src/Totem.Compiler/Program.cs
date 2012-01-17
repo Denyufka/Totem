@@ -1,5 +1,6 @@
-﻿
-using System;
+﻿using System;
+using System.IO;
+
 namespace Totem.Compiler
 {
     class Program
@@ -8,7 +9,7 @@ namespace Totem.Compiler
         {
             TotemGrammar tg = new TotemGrammar();
             Irony.Parsing.Parser parser = new Irony.Parsing.Parser(tg);
-            var tree = parser.Parse("var per = 5, navn = 'test', p = null, t = undefined, s = per; var knut = 10; per = knut + 1; knut -= 5;");
+            var tree = parser.Parse(new StreamReader(File.OpenRead("test.totem")).ReadToEnd(), "test.totem");
             if (!tree.HasErrors())
             {
                 var generator = new Generator("test");
