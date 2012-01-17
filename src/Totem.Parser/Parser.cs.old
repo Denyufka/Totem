@@ -1,0 +1,275 @@
+
+using System;
+using System.Globalization;
+using Totem.Library;
+
+namespace Totem.Compiler {
+
+
+public enum Op
+{
+	Ret
+}
+
+internal class Var
+{
+	private string name;
+	public string Name { get { return name; } }
+	public Var(string name) { this.name = name; }
+}
+
+public class Parser {
+	public const int _EOF = 0;
+	public const int _ident = 1;
+	public const int _number = 2;
+	public const int _var = 3;
+	public const int _stringCon = 4;
+	public const int maxT = 11;
+
+	const bool T = true;
+	const bool x = false;
+	const int minErrDist = 2;
+	
+	public Scanner scanner;
+	public Errors  errors;
+	public CodeGen gen;
+
+	public Token t;    // last recognized token
+	public Token la;   // lookahead token
+	int errDist = minErrDist;
+
+
+
+	public Parser(Scanner scanner) {
+		this.scanner = scanner;
+		errors = new Errors();
+	}
+
+	void SynErr (int n) {
+		if (errDist >= minErrDist) errors.SynErr(la.line, la.col, n);
+		errDist = 0;
+	}
+
+	public void SemErr (string msg) {
+		if (errDist >= minErrDist) errors.SemErr(t.line, t.col, msg);
+		errDist = 0;
+	}
+	
+	void Get () {
+		for (;;) {
+			t = la;
+			la = scanner.Scan();
+			if (la.kind <= maxT) { ++errDist; break; }
+
+			la = t;
+		}
+	}
+	
+	void Expect (int n) {
+		if (la.kind==n) Get(); else { SynErr(n); }
+	}
+	
+	bool StartOf (int s) {
+		return set[s, la.kind];
+	}
+	
+	void ExpectWeak (int n, int follow) {
+		if (la.kind == n) Get();
+		else {
+			SynErr(n);
+			while (!StartOf(follow)) Get();
+		}
+	}
+
+
+	bool WeakSeparator(int n, int syFol, int repFol) {
+		int kind = la.kind;
+		if (kind == n) {Get(); return true;}
+		else if (StartOf(repFol)) {return false;}
+		else {
+			SynErr(n);
+			while (!(set[syFol, kind] || set[repFol, kind] || set[0, kind])) {
+				Get();
+				kind = la.kind;
+			}
+			return StartOf(syFol);
+		}
+	}
+
+	
+	void Totem() {
+		Statements();
+	}
+
+	void Statements() {
+		while (StartOf(1)) {
+			Statement();
+		}
+	}
+
+	void Statement() {
+		if (StartOf(2)) {
+			Expr();
+			Expect(5);
+			gen.Pop(); 
+		} else if (la.kind == 6) {
+			Get();
+			Statements();
+			Expect(7);
+		} else SynErr(12);
+	}
+
+	void Expr() {
+		object val = null; 
+		if (la.kind == 3) {
+			LocalVarDecl(out val);
+		} else if (la.kind == 10) {
+			RetExpr(out val);
+		} else if (la.kind == 1) {
+			SetExpr(out val);
+		} else if (la.kind == 4) {
+			String(out val);
+		} else if (la.kind == 2) {
+			Number(out val);
+		} else if (la.kind == 1) {
+			Var(out val);
+		} else SynErr(13);
+		gen.Push(val); 
+	}
+
+	void LocalVarDecl(out object val) {
+		Expect(3);
+		LocalVar();
+		while (la.kind == 9) {
+			Get();
+			LocalVar();
+		}
+		val = TotemObject.Undefined; 
+	}
+
+	void RetExpr(out object val) {
+		val = Op.Ret; 
+		Expect(10);
+		Expr();
+	}
+
+	void SetExpr(out object val) {
+		string name; val = null; 
+		Ident(out name);
+		Expect(8);
+		Expr();
+		gen.Set(name); 
+		while (la.kind == 9) {
+			Get();
+			Ident(out name);
+			Expect(8);
+			Expr();
+			gen.Set(name); 
+		}
+	}
+
+	void String(out object val) {
+		Expect(4);
+		val = t.val.Substring(1, t.val.Length - 2); 
+	}
+
+	void Number(out object val) {
+		Expect(2);
+		val = double.Parse(t.val, NumberStyles.Float, CultureInfo.InvariantCulture); 
+	}
+
+	void Var(out object val) {
+		string name; 
+		Ident(out name);
+		val = new Var(name); 
+	}
+
+	void Ident(out string name) {
+		Expect(1);
+		name = t.val; 
+	}
+
+	void LocalVar() {
+		string name; 
+		Ident(out name);
+		gen.Declare(name); 
+		if (la.kind == 8) {
+			Get();
+			Expr();
+			gen.Set(name); 
+		}
+	}
+
+
+
+	public void Parse() {
+		la = new Token();
+		la.val = "";		
+		Get();
+		Totem();
+		Expect(0);
+
+	}
+	
+	static readonly bool[,] set = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,T,T,T, T,x,T,x, x,x,T,x, x},
+		{x,T,T,T, T,x,x,x, x,x,T,x, x}
+
+	};
+} // end Parser
+
+
+public class Errors {
+	public int count = 0;                                    // number of errors detected
+	public System.IO.TextWriter errorStream = Console.Out;   // error messages go to this stream
+	public string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
+
+	public virtual void SynErr (int line, int col, int n) {
+		string s;
+		switch (n) {
+			case 0: s = "EOF expected"; break;
+			case 1: s = "ident expected"; break;
+			case 2: s = "number expected"; break;
+			case 3: s = "var expected"; break;
+			case 4: s = "stringCon expected"; break;
+			case 5: s = "\";\" expected"; break;
+			case 6: s = "\"{\" expected"; break;
+			case 7: s = "\"}\" expected"; break;
+			case 8: s = "\"=\" expected"; break;
+			case 9: s = "\",\" expected"; break;
+			case 10: s = "\"return\" expected"; break;
+			case 11: s = "??? expected"; break;
+			case 12: s = "invalid Statement"; break;
+			case 13: s = "invalid Expr"; break;
+
+			default: s = "error " + n; break;
+		}
+		errorStream.WriteLine(errMsgFormat, line, col, s);
+		count++;
+	}
+
+	public virtual void SemErr (int line, int col, string s) {
+		errorStream.WriteLine(errMsgFormat, line, col, s);
+		count++;
+	}
+	
+	public virtual void SemErr (string s) {
+		errorStream.WriteLine(s);
+		count++;
+	}
+	
+	public virtual void Warning (int line, int col, string s) {
+		errorStream.WriteLine(errMsgFormat, line, col, s);
+	}
+	
+	public virtual void Warning(string s) {
+		errorStream.WriteLine(s);
+	}
+} // Errors
+
+
+public class FatalError: Exception {
+	public FatalError(string m): base(m) {}
+}
+}
