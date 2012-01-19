@@ -14,5 +14,10 @@ namespace Totem.Library
         {
             get { return new TotemString(value); }
         }
+
+        public override string ToString()
+        {
+            return value;
+        }
     }
 }

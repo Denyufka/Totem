@@ -1,6 +1,0 @@
-﻿var a = 2, b = 3;
-function add(nr1, nr2)
-{
-	return nr1 + nr2;
-}
-print(add(a,b));

@@ -1,0 +1,11 @@
+﻿var a = 2, b = 3;
+function add(nr1, nr2)
+{
+	return nr1 + nr2;
+}
+function sub(nr1, nr2)
+{
+	return nr1 - nr2;
+}
+print("number is: {num}", num: add(a,b));
+print("number is: {num}", num: sub(a,b));

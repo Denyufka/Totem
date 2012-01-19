@@ -108,7 +108,7 @@ namespace Totem.Compiler
             function_env = Load(typeof(TotemFunction).GetProperty("Environment", r.BindingFlags.NonPublic | r.BindingFlags.Instance).GetGetMethod(true));
 
             arguments_ctor = Load(typeof(TotemArguments).GetConstructor(Type.EmptyTypes));
-            arguments_add = Load(typeof(TotemArguments).GetMethod("Add"));
+            arguments_add = Load(typeof(TotemArguments).GetMethod("Add", r.BindingFlags.Public | r.BindingFlags.Instance | r.BindingFlags.DeclaredOnly));
 
             number_ctor_long = Load(typeof(TotemNumber).GetConstructor(new Type[] { typeof(long) }));
 
@@ -119,8 +119,8 @@ namespace Totem.Compiler
             undefined = Load(typeof(TotemValue).GetProperty("Undefined").GetGetMethod());
             @null = Load(typeof(TotemValue).GetProperty("Null").GetGetMethod());
 
-            value_add = Load(typeof(TotemValue).GetMethod("Add"));
-            value_sub = Load(typeof(TotemValue).GetMethod("Subtract"));
+            value_add = Load(typeof(TotemValue).GetMethod("Add", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_sub = Load(typeof(TotemValue).GetMethod("Subtract", r.BindingFlags.Static | r.BindingFlags.Public));
         }
 
         internal void GenerateProgram(ParseTreeNode rootNode)
