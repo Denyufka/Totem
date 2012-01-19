@@ -10,6 +10,9 @@ namespace Totem.Compiler
 {
     internal class Generator
     {
+        private Dictionary<Type, TypeReference> typeRegister = new Dictionary<Type, TypeReference>();
+        private Dictionary<r.MethodBase, MethodReference> methodRegister = new Dictionary<r.MethodBase, MethodReference>();
+
         AssemblyDefinition assembly;
         ModuleDefinition module;
         string nsp;
@@ -18,15 +21,16 @@ namespace Totem.Compiler
         TypeReference value;
         TypeReference tstring;
         TypeReference arguments;
+        TypeReference parameter;
 
         TypeReference arr_parameters;
 
         MethodReference value_val;
 
         MethodReference undefined;
-        MethodReference null_totem;
+        MethodReference @null;
         MethodReference function_run;
-        MethodReference function_execute;
+        MethodReference execute;
         MethodReference function_ctor;
         MethodReference function_local_set;
         MethodReference function_local_get;
@@ -41,13 +45,13 @@ namespace Totem.Compiler
         MethodReference value_add;
         MethodReference value_sub;
 
-        int fn_count = 0;
-        HashSet<string> fn_names = new HashSet<string>();
+        HashSet<string> fn_names = new HashSet<string>() { "Main" };
         Stack<ParameterCount> paramCount = new Stack<ParameterCount>();
 
         private struct ParameterCount
         {
             public HashSet<VariableDefinition> Avail { get; set; }
+            public HashSet<VariableDefinition> SVars { get; set; }
             public MethodDefinition MethodDefinition { get; set; }
         }
 
@@ -59,60 +63,83 @@ namespace Totem.Compiler
             this.nsp = nsp;
         }
 
+        private TypeReference Load(Type type)
+        {
+            TypeReference reference = null;
+            if (!typeRegister.TryGetValue(type, out reference))
+            {
+                reference = module.Import(type);
+                typeRegister.Add(type, reference);
+            }
+            return reference;
+        }
+
+        private MethodReference Load(r.MethodBase mi)
+        {
+            MethodReference ret = null;
+            if (!methodRegister.TryGetValue(mi, out ret))
+            {
+                ret = module.Import(mi);
+                methodRegister.Add(mi, ret);
+            }
+            return ret;
+        }
+
         private void LoadAll()
         {
             // Types
-            function = module.Import(typeof(TotemFunction));
-            value = module.Import(typeof(TotemValue));
-            tstring = module.Import(typeof(TotemString));
-            arguments = module.Import(typeof(TotemArguments));
+            function = Load(typeof(TotemFunction));
+            value = Load(typeof(TotemValue));
+            tstring = Load(typeof(TotemString));
+            arguments = Load(typeof(TotemArguments));
+            parameter = Load(typeof(TotemParameter));
 
-            arr_parameters = module.Import(typeof(TotemParameter[]));
+            arr_parameters = Load(typeof(TotemParameter[]));
 
             // Methods
-            value_val = module.Import(typeof(TotemValue).GetProperty("ByTotemValue").GetGetMethod());
+            value_val = Load(typeof(TotemValue).GetProperty("ByTotemValue").GetGetMethod());
 
-            function_run = module.Import(typeof(TotemFunction).GetMethod("TotemRun", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
-            function_execute = module.Import(typeof(TotemFunction).GetMethod("Execute"));
-            function_ctor = module.Import(typeof(TotemFunction).GetConstructor(r.BindingFlags.NonPublic | r.BindingFlags.Instance, null, new Type[] { typeof(TotemEnvironment), typeof(string), typeof(TotemParameter[]) }, null));
-            function_local_set = module.Import(typeof(TotemFunction).GetMethod("LocalSet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
-            function_local_get = module.Import(typeof(TotemFunction).GetMethod("LocalGet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
-            function_local_dec = module.Import(typeof(TotemFunction).GetMethod("LocalDec", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
-            function_env = module.Import(typeof(TotemFunction).GetProperty("Environment", r.BindingFlags.NonPublic | r.BindingFlags.Instance).GetGetMethod(true));
+            function_run = Load(typeof(TotemFunction).GetMethod("TotemRun", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
+            execute = Load(typeof(TotemValue).GetMethod("Execute"));
+            function_ctor = Load(typeof(TotemFunction).GetConstructor(r.BindingFlags.NonPublic | r.BindingFlags.Instance, null, new Type[] { typeof(TotemEnvironment), typeof(string), typeof(TotemParameter[]) }, null));
+            function_local_set = Load(typeof(TotemFunction).GetMethod("LocalSet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
+            function_local_get = Load(typeof(TotemFunction).GetMethod("LocalGet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
+            function_local_dec = Load(typeof(TotemFunction).GetMethod("LocalDec", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
+            function_env = Load(typeof(TotemFunction).GetProperty("Environment", r.BindingFlags.NonPublic | r.BindingFlags.Instance).GetGetMethod(true));
 
-            arguments_ctor = module.Import(typeof(TotemArguments).GetConstructor(Type.EmptyTypes));
-            arguments_add = module.Import(typeof(TotemArguments).GetMethod("Add"));
+            arguments_ctor = Load(typeof(TotemArguments).GetConstructor(Type.EmptyTypes));
+            arguments_add = Load(typeof(TotemArguments).GetMethod("Add"));
 
-            number_ctor_long = module.Import(typeof(TotemNumber).GetConstructor(new Type[] { typeof(long) }));
+            number_ctor_long = Load(typeof(TotemNumber).GetConstructor(new Type[] { typeof(long) }));
 
-            string_ctor = module.Import(typeof(TotemString).GetConstructor(new Type[] { typeof(string) }));
+            string_ctor = Load(typeof(TotemString).GetConstructor(new Type[] { typeof(string) }));
 
-            parameter_ctor = module.Import(typeof(TotemParameter).GetConstructor(new Type[] { typeof(string), typeof(TotemValue) }));
+            parameter_ctor = Load(typeof(TotemParameter).GetConstructor(new Type[] { typeof(string), typeof(TotemValue) }));
 
-            undefined = module.Import(typeof(TotemValue).GetProperty("Undefined").GetGetMethod());
-            null_totem = module.Import(typeof(TotemValue).GetProperty("Null").GetGetMethod());
+            undefined = Load(typeof(TotemValue).GetProperty("Undefined").GetGetMethod());
+            @null = Load(typeof(TotemValue).GetProperty("Null").GetGetMethod());
 
-            value_add = module.Import(typeof(TotemValue).GetMethod("Add"));
-            value_sub = module.Import(typeof(TotemValue).GetMethod("Subtract"));
+            value_add = Load(typeof(TotemValue).GetMethod("Add"));
+            value_sub = Load(typeof(TotemValue).GetMethod("Subtract"));
         }
 
         internal void GenerateProgram(ParseTreeNode rootNode)
         {
-            if (rootNode.Term.Name != "program")
+            if (rootNode.Term.Name != "Prog")
                 throw new InvalidOperationException("Can't compile from the middle of a tree");
 
             TypeDefinition td = new TypeDefinition(nsp, "Program", TypeAttributes.Public, function);
             module.Types.Add(td);
 
-            MethodDefinition md = new MethodDefinition("Main", MethodAttributes.Static | MethodAttributes.Public, module.Import(typeof(void)));
+            MethodDefinition md = new MethodDefinition("Main", MethodAttributes.Static | MethodAttributes.Public, Load(typeof(void)));
             td.Methods.Add(md);
 
             assembly.EntryPoint = md;
 
-            var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, module.Import(typeof(void)));
+            var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, Load(typeof(void)));
             var ctorIl = ctor.Body.GetILProcessor();
             ctorIl.Emit(OpCodes.Ldarg_0);
-            ctorIl.Emit(OpCodes.Ldnull);
+            ctorIl.Emit(OpCodes.Call, Load(typeof(TotemEnvironment).GetProperty("Global").GetGetMethod()));
             ctorIl.Emit(OpCodes.Ldstr, "Main");
             ctorIl.Emit(OpCodes.Ldnull);
             ctorIl.Emit(OpCodes.Call, function_ctor);
@@ -120,9 +147,11 @@ namespace Totem.Compiler
             td.Methods.Add(ctor);
 
             var il = md.Body.GetILProcessor();
-            il.Emit(OpCodes.Newobj, module.Import(ctor));
+            il.Emit(OpCodes.Newobj, ctor);
             il.Emit(OpCodes.Ldnull);
-            il.Emit(OpCodes.Callvirt, module.Import(typeof(TotemFunction).GetMethod("Execute")));
+            il.Emit(OpCodes.Callvirt, Load(typeof(TotemFunction).GetMethod("Execute")));
+            il.Emit(OpCodes.Pop);
+            il.Emit(OpCodes.Call, Load(typeof(Console).GetMethod("ReadLine", Type.EmptyTypes)));
             il.Emit(OpCodes.Pop);
             il.Emit(OpCodes.Ret);
 
@@ -132,12 +161,12 @@ namespace Totem.Compiler
             paramCount.Push(new ParameterCount
             {
                 Avail = new HashSet<VariableDefinition>(),
+                SVars = new HashSet<VariableDefinition>(),
                 MethodDefinition = md
             });
 
-            var statement_list_opt = rootNode.ChildNodes[0];
-            var statement_list = statement_list_opt.ChildNodes[0];
-            GenerateFunction(il, statement_list.ChildNodes);
+            var element_list = rootNode.ChildNodes[0];
+            GenerateFunction(il, element_list.ChildNodes);
 
             il.Emit(OpCodes.Call, undefined);
             il.Emit(OpCodes.Ret);
@@ -146,51 +175,21 @@ namespace Totem.Compiler
 
         private void GenerateFunction(ILProcessor il, IEnumerable<ParseTreeNode> statement_nodes)
         {
+            Instruction current = il.Create(OpCodes.Nop);
+            il.Append(current);
             foreach (var node in statement_nodes)
             {
-                GenerateStatement(il, node);
+                GenerateStatement(il, ref current, node);
             }
         }
 
-        private void GenerateFunction(ILProcessor il, string cilName, string name, ParseTreeNode parameter_list_opt, ParseTreeNode block, int loc)
+        private void GenerateFunction(ILProcessor il, ref Instruction start, ref Instruction current, string name, string mName, ParseTreeNodeList parameters, IEnumerable<ParseTreeNode> body)
         {
-            var pn = GetVar(arr_parameters);
-
-            if (parameter_list_opt.ChildNodes.Count == 0)
-            {
-                il.Emit(OpCodes.Ldc_I4, 0);
-                il.Emit(OpCodes.Newarr, module.Import(typeof(TotemParameter)));
-                il.Emit(OpCodes.Stloc, pn);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldc_I4, parameter_list_opt.ChildNodes[0].ChildNodes.Count);
-                il.Emit(OpCodes.Newarr, module.Import(typeof(TotemParameter)));
-                il.Emit(OpCodes.Stloc, pn);
-                for (int i = 0; i < parameter_list_opt.ChildNodes[0].ChildNodes.Count; i++)
-                {
-                    il.Emit(OpCodes.Ldloc, pn);
-                    il.Emit(OpCodes.Ldc_I4, i);
-                    var pNode = parameter_list_opt.ChildNodes[0].ChildNodes[i];
-                    il.Emit(OpCodes.Ldstr, pNode.ChildNodes[0].Token.ValueString); // parameter name
-                    if (pNode.ChildNodes.Count == 1)
-                    {
-                        il.Emit(OpCodes.Call, undefined);
-                    }
-                    else
-                    {
-                        GenerateExpression(il, pNode.ChildNodes[2]);
-                    }
-                    il.Emit(OpCodes.Newobj, parameter_ctor);
-                    il.Emit(OpCodes.Stelem_Ref);
-                }
-            }
-
-            TypeDefinition td = new TypeDefinition(nsp, cilName, TypeAttributes.Public, function);
-            var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, module.Import(typeof(void)));
-            ctor.Parameters.Add(new ParameterDefinition("env", ParameterAttributes.In, module.Import(typeof(TotemEnvironment))));
-            ctor.Parameters.Add(new ParameterDefinition("name", ParameterAttributes.In, module.Import(typeof(string))));
-            ctor.Parameters.Add(new ParameterDefinition("parameters", ParameterAttributes.In, module.Import(typeof(TotemParameter[]))));
+            var fn = new TypeDefinition(nsp, mName, TypeAttributes.Public | TypeAttributes.Sealed, function);
+            var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, Load(typeof(void)));
+            ctor.Parameters.Add(new ParameterDefinition("env", ParameterAttributes.In, Load(typeof(TotemEnvironment))));
+            ctor.Parameters.Add(new ParameterDefinition("name", ParameterAttributes.In, Load(typeof(string))));
+            ctor.Parameters.Add(new ParameterDefinition("parameters", ParameterAttributes.In, arr_parameters));
             var ctorIl = ctor.Body.GetILProcessor();
             ctorIl.Emit(OpCodes.Ldarg_0);
             ctorIl.Emit(OpCodes.Ldarg_1);
@@ -198,251 +197,228 @@ namespace Totem.Compiler
             ctorIl.Emit(OpCodes.Ldarg_3);
             ctorIl.Emit(OpCodes.Call, function_ctor);
             ctorIl.Emit(OpCodes.Ret);
-            td.Methods.Add(ctor);
+            fn.Methods.Add(ctor);
 
-            var md = new MethodDefinition("TotemRun", MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual, value);
-            var nIl = md.Body.GetILProcessor();
-
+            var fnc = new MethodDefinition("TotemRun", MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual, value);
+            var fnil = fnc.Body.GetILProcessor();
             paramCount.Push(new ParameterCount
             {
                 Avail = new HashSet<VariableDefinition>(),
-                MethodDefinition = md
+                SVars = new HashSet<VariableDefinition>(),
+                MethodDefinition = fnc
             });
-            var statement_list_opt = block.ChildNodes[0];
-            var statement_list = statement_list_opt.ChildNodes[0];
-            GenerateFunction(nIl, statement_list.ChildNodes);
-            nIl.Emit(OpCodes.Call, undefined);
-            nIl.Emit(OpCodes.Ret);
-            td.Methods.Add(md);
+            GenerateFunction(fnil, body);
+            fnil.Emit(OpCodes.Call, undefined);
+            fnil.Emit(OpCodes.Ret);
             paramCount.Pop();
+            fn.Methods.Add(fnc);
 
-            module.Types.Add(td);
+            module.Types.Add(fn);
 
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Callvirt, function_env);
-            il.Emit(OpCodes.Ldstr, name);
-            il.Emit(OpCodes.Ldloc, pn);
-            il.Emit(OpCodes.Newobj, ctor);
-            il.Emit(OpCodes.Stloc, loc);
-
-            RelVar(pn);
+            var pn = GetSVar(arr_parameters);
+            var prev = start;
+            il.Add(ref prev, il.Create(OpCodes.Ldc_I4, parameters.Count));
+            il.Add(ref prev, il.Create(OpCodes.Newarr, this.parameter));
+            il.Add(ref prev, il.Create(OpCodes.Stloc, pn));
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                var param = parameters[i];
+                il.Add(ref prev, il.Create(OpCodes.Ldloc, pn));
+                il.Add(ref prev, il.Create(OpCodes.Ldc_I4, i));
+                il.Add(ref prev, il.Create(OpCodes.Ldstr, param.ChildNodes[0].Token.ValueString));
+                if (param.ChildNodes.Count > 1)
+                {
+                    GenerateExpression(il, ref start, ref prev, param.ChildNodes[1].ChildNodes[1]);
+                }
+                else
+                {
+                    il.Add(ref prev, il.Create(OpCodes.Call, undefined));
+                }
+                il.Add(ref prev, il.Create(OpCodes.Newobj, parameter_ctor));
+                il.Add(ref prev, il.Create(OpCodes.Stelem_Ref));
+            }
+            start = prev;
+            il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+            il.Add(ref current, il.Create(OpCodes.Callvirt, function_env));
+            il.Add(ref current, il.Create(OpCodes.Ldstr, name));
+            il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+            il.Add(ref current, il.Create(OpCodes.Newobj, ctor));
         }
 
-        private void GenerateStatement(ILProcessor il, ParseTreeNode node)
+        private void GenerateStatement(ILProcessor il, ref Instruction current, ParseTreeNode node)
         {
+            var start = current;
+            il.Add(ref current, il.Create(OpCodes.Nop));
             switch (node.Term.Name)
             {
-                case "declaration_statement":
-                    GenerateDeclaration(il, node.ChildNodes[0]);
+                case "VarStmt":
+                    GenerateDeclaration(il, start, ref current, node);
                     break;
-                case "statement_expression":
-                    GenerateMemberWriteLoad(il, node.ChildNodes[0].ChildNodes[0]);
-                    if (node.ChildNodes[1].ChildNodes[0].Token.ValueString != "=")
-                    {
-                        var bin_op = node.ChildNodes[1].ChildNodes[0].Token.ValueString[0].ToString();
-                        GenerateBinOpExpression(il, bin_op, node.ChildNodes[0], node.ChildNodes[2]);
-                    }
-                    else
-                    {
-                        GenerateExpression(il, node.ChildNodes[2]);
-                    }
-                    GenerateMemberWriteCall(il, node.ChildNodes[0].ChildNodes[0]);
+                case "FuncDefStmt":
+                    var name = node.ChildNodes[1].Token.ValueString;
+                    var mName = MakeFunctionName(name);
+                    il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                    il.Add(ref current, il.Create(OpCodes.Ldstr, name));
+                    GenerateFunction(il, ref start, ref current, name, mName, node.ChildNodes[2].ChildNodes, node.ChildNodes[3].ChildNodes[0].ChildNodes);
+                    il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_dec));
                     break;
-                case "return_expression":
-                    GenerateExpression(il, node.ChildNodes[1]);
-                    il.Emit(OpCodes.Ret);
+                case "FlowControlStmt":
+                    var keyword = node.ChildNodes[0].Token.ValueString;
+                    switch (keyword)
+                    {
+                        case "return":
+                            if (node.ChildNodes.Count > 1)
+                            {
+                                GenerateExpression(il, ref start, ref current, node.ChildNodes[1]);
+                            }
+                            else
+                            {
+                                il.Add(ref current, il.Create(OpCodes.Call, undefined));
+                            }
+                            il.Add(ref current, il.Create(OpCodes.Ret));
+                            break;
+                        default:
+                            throw new InvalidOperationException("Unknown flow control keyword " + keyword);
+                    }
+                    break;
+                case "ExprStmt":
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
+                    il.Add(ref current, il.Create(OpCodes.Pop));
                     break;
                 default:
                     throw new InvalidOperationException("Term " + node.Term.Name + " is not a statement");
             }
+            RelSVars();
         }
 
-        private void GenerateDeclaration(ILProcessor il, ParseTreeNode node)
+        private void GenerateDeclaration(ILProcessor il, Instruction start, ref Instruction current, ParseTreeNode node)
         {
             string name;
             switch (node.Term.Name)
             {
-                case "local_variable_declaration":
+                case "VarStmt":
                     var declarators = node.ChildNodes[1].ChildNodes;
                     foreach (var dec in declarators)
                     {
                         name = dec.ChildNodes[0].Token.ValueString;
-                        il.Emit(OpCodes.Ldarg_0);
-                        il.Emit(OpCodes.Ldstr, name);
+                        il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                        il.Add(ref current, il.Create(OpCodes.Ldstr, name));
                         if (dec.ChildNodes.Count > 1)
                         {
-                            GenerateExpression(il, dec.ChildNodes[2].ChildNodes[0]);
+                            GenerateExpression(il, ref start, ref current, dec.ChildNodes[1].ChildNodes[1]);
                         }
                         else
                         {
-                            il.Emit(OpCodes.Call, undefined);
+                            il.Add(ref current, il.Create(OpCodes.Call, undefined));
                         }
-                        il.Emit(OpCodes.Callvirt, function_local_dec);
+                        il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_dec));
                     }
-                    break;
-                case "local_function_declaration":
-                    name = node.ChildNodes[1].Token.ValueString;
-                    var cilName = name + "Function";
-                    while (fn_names.Contains(cilName))
-                    {
-                        cilName += "__" + (++fn_count);
-                    }
-                    fn_names.Add(cilName);
-
-                    var pn = GetVar(function);
-
-                    GenerateFunction(il, cilName, name, node.ChildNodes[2], node.ChildNodes[3], pn);
-                    il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Ldstr, name);
-                    il.Emit(OpCodes.Ldloc, pn);
-                    il.Emit(OpCodes.Callvirt, function_local_dec);
-
-                    RelVar(pn);
                     break;
                 default:
                     throw new InvalidOperationException("Term " + node.Term.Name + " is not a declaration_statement");
             }
         }
 
-        private void GenerateExpression(ILProcessor il, ParseTreeNode node)
+        private void GenerateExpression(ILProcessor il, ref Instruction start, ref Instruction current, ParseTreeNode node)
         {
+            string name;
+            int pn;
+            var prev = start;
             switch (node.Term.Name)
             {
-                case "primary_expression":
-                    GeneratePrimaryExpression(il, node.ChildNodes[0]);
+                case "ConstExpr":
+                    GenerateConst(il, start, ref current, node.ChildNodes[0]);
                     break;
-                case "bin_op_expression":
-                    GenerateBinOpExpression(il, node.ChildNodes[1].Token.ValueString, node.ChildNodes[0], node.ChildNodes[2]);
-                    break;
-                case "member_access":
-                    GenerateMemberRead(il, node);
-                    break;
-                default:
-                    throw new InvalidOperationException("Term " + node.Term.Name + " is not an expression");
-            }
-        }
-
-        private void GeneratePrimaryExpression(ILProcessor il, ParseTreeNode node)
-        {
-            object value;
-            switch (node.Term.Name)
-            {
-                case "number":
-                    value = node.Token.Value;
-                    if (value is int || value is long)
+                case "BinExpr":
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[0]); // left
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[2]); // right
+                    var keySymbol = node.ChildNodes[1].Token.ValueString;
+                    switch (keySymbol)
                     {
-                        il.Emit(OpCodes.Ldc_I8, Convert.ToInt64(value));
-                        il.Emit(OpCodes.Newobj, number_ctor_long);
-                    }
-                    else
-                        throw new InvalidOperationException("Unknown number type");
-                    break;
-                case "string":
-                    string sVal = node.Token.ValueString;
-                    il.Emit(OpCodes.Ldstr, sVal);
-                    il.Emit(OpCodes.Newobj, string_ctor);
-                    break;
-                case "null":
-                    il.Emit(OpCodes.Call, null_totem);
-                    break;
-                case "undefined":
-                    il.Emit(OpCodes.Call, undefined);
-                    break;
-                case "member_access":
-                    GenerateMemberRead(il, node);
-                    break;
-                default:
-                    throw new InvalidOperationException("Term " + node.Term.Name + " is not a primary expression");
-            }
-        }
-
-        private void GenerateBinOpExpression(ILProcessor il, string op, ParseTreeNode left, ParseTreeNode right)
-        {
-            GenerateExpression(il, left);
-            GenerateExpression(il, right);
-            switch (op)
-            {
-                case "+":
-                    il.Emit(OpCodes.Call, value_add);
-                    break;
-                case "-":
-                    il.Emit(OpCodes.Call, value_sub);
-                    break;
-                default:
-                    throw new InvalidOperationException("Unknown binary operation " + op);
-            }
-        }
-
-        private void GenerateMemberRead(ILProcessor il, ParseTreeNode node)
-        {
-            string identifier = node.ChildNodes[0].Token.ValueString;
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldstr, identifier);
-            il.Emit(OpCodes.Callvirt, function_local_get);
-            if (node.ChildNodes[1].ChildNodes.Count == 0)
-            {
-                il.Emit(OpCodes.Callvirt, value_val);
-            }
-            else
-            {
-                foreach (var segment in node.ChildNodes[1].ChildNodes[0].ChildNodes)
-                {
-                    var n = segment.ChildNodes[0];
-                    switch (n.Term.Name)
-                    {
-                        case "argument_list_par":
-                            int pn = GetVar(arguments);
-                            il.Emit(OpCodes.Newobj, arguments_ctor);
-                            il.Emit(OpCodes.Stloc, pn);
-                            if (n.ChildNodes[0].ChildNodes.Count > 0)
-                            {
-                                foreach (var p in n.ChildNodes[0].ChildNodes[0].ChildNodes)
-                                {
-                                    il.Emit(OpCodes.Ldloc, pn);
-                                    if (p.ChildNodes.Count == 1)
-                                        il.Emit(OpCodes.Ldnull);
-                                    else
-                                        il.Emit(OpCodes.Ldstr, p.ChildNodes[0].Token.ValueString);
-                                    GenerateExpression(il, p.ChildNodes[p.ChildNodes.Count - 1]);
-                                    il.Emit(OpCodes.Callvirt, arguments_add);
-                                }
-                            }
-                            RelVar(pn);
-                            il.Emit(OpCodes.Ldloc, pn);
-                            il.Emit(OpCodes.Callvirt, function_execute);
+                        case "+":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_add));
+                            break;
+                        case "-":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_sub));
                             break;
                         default:
-                            throw new InvalidOperationException("Unknown member access segment " + n.Term.Name);
+                            throw new InvalidOperationException("Unknown bin expression key symbol " + keySymbol);
                     }
-                }
+                    break;
+                case "FunctionCallExpr":
+                    pn = GetSVar(arguments);
+                    il.Add(ref prev, il.Create(OpCodes.Newobj, arguments_ctor));
+                    il.Add(ref prev, il.Create(OpCodes.Stloc, pn));
+                    foreach (var arg in node.ChildNodes[1].ChildNodes)
+                    {
+                        il.Add(ref prev, il.Create(OpCodes.Ldloc, pn));
+                        if (arg.ChildNodes.Count == 1)
+                        {
+                            il.Add(ref prev, il.Create(OpCodes.Ldnull));
+                        }
+                        else
+                        {
+                            il.Add(ref prev, il.Create(OpCodes.Ldstr, arg.ChildNodes[0].Token.ValueString));
+                        }
+                        GenerateExpression(il, ref start, ref prev, arg.ChildNodes[arg.ChildNodes.Count - 1]);
+                        il.Add(ref prev, il.Create(OpCodes.Callvirt, arguments_add));
+                    }
+                    start = prev;
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
+                    il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                    il.Add(ref current, il.Create(OpCodes.Callvirt, execute));
+                    break;
+                case "AssignExpr":
+                    switch (node.ChildNodes[0].Term.Name)
+                    {
+                        case "identifier":
+                            pn = GetSVar(value);
+                            GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
+                            il.Add(ref start, il.Create(OpCodes.Stloc, pn));
+                            il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                            il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
+                            il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                            il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_set));
+                            il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                            break;
+                        default:
+                            throw new InvalidOperationException("Invalid QualifiedName term " + node.ChildNodes[0].Term.Name);
+                    }
+                    break;
+                case "identifier":
+                    name = node.Token.ValueString;
+                    il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                    il.Add(ref current, il.Create(OpCodes.Ldstr, name));
+                    il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_get));
+                    break;
+                case "FuncDefExpr":
+                    if (node.ChildNodes[1].ChildNodes.Count == 1)
+                        name = node.ChildNodes[1].ChildNodes[0].Token.ValueString;
+                    else
+                        name = "anononymous";
+                    var mName = MakeFunctionName(name);
+                    GenerateFunction(il, ref start, ref current, name, mName, node.ChildNodes[2].ChildNodes, node.ChildNodes[3].ChildNodes[0].ChildNodes);
+                    break;
+                default:
+                    throw new InvalidOperationException("Term " + node.Term.Name + " is not a valid expression term");
             }
         }
 
-        private void GenerateMemberWriteLoad(ILProcessor il, ParseTreeNode node)
+        private void GenerateConst(ILProcessor il, Instruction start, ref Instruction current, ParseTreeNode node)
         {
-            switch (node.Term.Name)
+            var obj = node.Token.Value;
+            if (obj is string)
             {
-                case "identifier":
-                    string identifier = node.Token.ValueString;
-                    il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Ldstr, identifier);
-                    break;
-                default:
-                    throw new InvalidOperationException("Unknown member access " + node.Term.Name);
+                il.Add(ref current, il.Create(OpCodes.Ldstr, (string)obj));
+                il.Add(ref current, il.Create(OpCodes.Newobj, string_ctor));
             }
-        }
-
-        private void GenerateMemberWriteCall(ILProcessor il, ParseTreeNode node)
-        {
-            switch (node.Term.Name)
+            else if (obj is int || obj is long)
             {
-                case "identifier":
-                    string identifier = node.Token.ValueString;
-                    il.Emit(OpCodes.Callvirt, function_local_set);
-                    break;
-                default:
-                    throw new InvalidOperationException("Unknown member access " + node.Term.Name);
+                il.Add(ref current, il.Create(OpCodes.Ldc_I8, Convert.ToInt64(obj)));
+                il.Add(ref current, il.Create(OpCodes.Newobj, number_ctor_long));
             }
+            else
+                throw new InvalidOperationException("Unknown constant type " + obj.GetType());
         }
 
         private int GetVar(TypeReference type)
@@ -473,9 +449,44 @@ namespace Totem.Compiler
             p.Avail.Add(p.MethodDefinition.Body.Variables[pn]);
         }
 
+        private int GetSVar(TypeReference type)
+        {
+            var p = paramCount.Peek();
+            var pn = GetVar(type);
+            p.SVars.Add(p.MethodDefinition.Body.Variables[pn]);
+            return pn;
+        }
+
+        private void RelSVars()
+        {
+            var p = paramCount.Peek();
+            foreach (var sv in p.SVars)
+                p.Avail.Add(sv);
+        }
+
+        private string MakeFunctionName(string name)
+        {
+            var mName = name[0].ToString().ToUpper() + name.Substring(1);
+            int i = 0;
+            while (fn_names.Contains(mName))
+            {
+                mName = name[0].ToString().ToUpper() + name.Substring(1) + "__" + (++i);
+            }
+            return mName;
+        }
+
         internal void Save(string file)
         {
             assembly.Write(file);
+        }
+    }
+
+    static class IlExtensions
+    {
+        public static void Add(this ILProcessor il, ref Instruction prev, Instruction insert)
+        {
+            il.InsertAfter(prev, insert);
+            prev = insert;
         }
     }
 }

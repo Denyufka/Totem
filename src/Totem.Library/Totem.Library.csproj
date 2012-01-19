@@ -40,6 +40,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Functions\Print.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TotemArguments.cs" />
     <Compile Include="TotemEnvoronment.cs" />

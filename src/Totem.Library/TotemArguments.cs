@@ -3,9 +3,9 @@ using System.Linq;
 
 namespace Totem.Library
 {
-    public class TotemArguments : TotemValue
+    public class TotemArguments : TotemValue, IEnumerable<TotemArguments.TotemArgument>
     {
-        private struct TotemArgument
+        public struct TotemArgument
         {
             public string Name { get; set; }
             public TotemValue Value { get; set; }
@@ -45,5 +45,23 @@ namespace Totem.Library
         {
             get { return this; }
         }
+
+        #region IEnumerable<TotemArguments> Members
+
+        IEnumerator<TotemArguments.TotemArgument> IEnumerable<TotemArguments.TotemArgument>.GetEnumerator()
+        {
+            return args.Where(a => a.Name == null).Concat(args.Where(a => a.Name != null)).GetEnumerator();
+        }
+
+        #endregion
+
+        #region IEnumerable Members
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable<TotemArguments.TotemArgument>)this).GetEnumerator();
+        }
+
+        #endregion
     }
 }

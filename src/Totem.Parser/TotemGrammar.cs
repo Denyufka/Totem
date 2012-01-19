@@ -8,7 +8,7 @@ namespace Totem.Compiler
         public TotemGrammar()
         {
             #region Lexical structure
-            var strings = CreateStringLiteral("string");
+            var @string = CreateStringLiteral("string");
             var number = CreateNumberLiteral("number");
             var identifier = CreateIdentifier("identifier");
 
@@ -23,146 +23,197 @@ namespace Totem.Compiler
             this.NonGrammarTerminals.Add(ppInstruction);
 
             // Symbols
-            var colon = ToTerm(":", "colon");
-            var semi = ToTerm(";", "semi");
-            var semi_opt = new NonTerminal("semi_opt", Empty | semi);
+            #region Terminals
+            var @is = ToTerm("is", "is");
             var dot = ToTerm(".", "dot");
+            var lt = ToTerm("<", "less");
+            var gt = ToTerm(">", "greater");
+            var lsbr = ToTerm("[", "left square bracket");
+            var rsbr = ToTerm("]", "right square bracket");
+            var lpr = ToTerm("(", "left parantesis");
+            var rpr = ToTerm(")", "right parantesis");
+            var lcbr = ToTerm("{", "left curly bracket");
+            var rcbr = ToTerm("}", "right curly bracket");
             var comma = ToTerm(",", "comma");
-            var comma_opt = new NonTerminal("comma_opt", Empty | comma);
-            var commas_opt = new NonTerminal("commas_opt");
-            commas_opt.Rule = MakeStarRule(commas_opt, null, comma);
-            var qmark = ToTerm("?", "qmark");
-            var qmark_opt = new NonTerminal("qmark_opt", Empty | qmark);
-            var lbr = ToTerm("{", "lbr");
-            var rbr = ToTerm("}", "rbr");
-            var lpar = ToTerm("(", "lpar");
-            var rpar = ToTerm(")", "rpar");
-            var vark = ToTerm("var", "var");
+            var semi = ToTerm(";", "semicolon");
+            var colon = ToTerm(":", "colon");
+
+            var @true = ToTerm("true", "true");
+            var @false = ToTerm("false", "false");
+            var @null = ToTerm("null", "null");
+            var undefined = ToTerm("undefined", "undefined");
+            var var = ToTerm("var", "var");
+            var @new = ToTerm("new", "new");
+            var @return = ToTerm("return", "return");
+            var @throw = ToTerm("throw", "throw");
+            var function = ToTerm("function", "function");
             #endregion
 
-            #region NonTerminals
-            // Expressions
-            var expression = new NonTerminal("expression", "expression");
-            var primary_expression = new NonTerminal("primary_expression");
-            var literal = new NonTerminal("literal");
-            var member_access = new NonTerminal("member_access");
-            var initializer_value = new NonTerminal("initializer_value");
-            var assignment_operator = new NonTerminal("assignment_operator");
-            var bin_op_expression = new NonTerminal("bin_op_expression");
-            var bin_op = new NonTerminal("bin_op", "operator symbol");
+            #region 2. Non Terminals
+            #region 2.0 Optional Terminals
+            var identifierOpt = new NonTerminal("identifierOpt", Empty | identifier);
+            #endregion
+            #region 2.1 Expressions
+            var Expr = new NonTerminal("Expr"/*, typeof(Expr)*/);
+            var ParenExpr = new NonTerminal("ParenExpr");
+            var MemberExpr = new NonTerminal("MemberExpr");
+            var QualifiedName = new NonTerminal("QualifiedName");
+            var ConstExpr = new NonTerminal("ConstExpr"/*, typeof(ConstExpr)*/);
+            var BinExpr = new NonTerminal("BinExpr"/*, typeof(BinExpr)*/);
+            var UnaryExpr = new NonTerminal("UnaryExpr"/*, typeof(UnaryExpr)*/);
+            var AssignExpr = new NonTerminal("AssignExpr"/*, typeof(AssignExpr)*/);
+            var FuncDefExpr = new NonTerminal("FuncDefExpr"/*, typeof(FuncDefExpr)*/);
+            var VarExpr = new NonTerminal("VarExpr"/*, typeof(VarExpr)*/);
+            var VarExprList = new NonTerminal("VarExprList"/*, typeof(VarExprList)*/);
+            var Initializer = new NonTerminal("Initializer"/*, typeof(Initializer)*/);
+            var InitializerOpt = new NonTerminal("InitializerOpt");
 
-            var parameter = new NonTerminal("parameter");
-            var parameter_list = new NonTerminal("parameter_list");
-            var parameter_list_opt = new NonTerminal("parameter_list_opt");
+            var FunctionCall = new NonTerminal("FunctionCall"/*, typeof(FunctionCall)*/);
+            var FunctionCallExpr = new NonTerminal("FunctionCallExpr");
+            var Argument = new NonTerminal("Argument"/*, typeof(Argument)*/);
+            var ArgumentList = new NonTerminal("ArgumentList"/*, typeof(ArgumentList)*/);
+            var Parameter = new NonTerminal("Parameter"/*, typeof(Parameter)*/);
+            var ParameterList = new NonTerminal("ParameterList"/* typeof(ParameterList)*/);
 
-            var argument = new NonTerminal("argument");
-            var argument_list = new NonTerminal("argument_list");
-            var argument_list_opt = new NonTerminal("argument_list_opt");
-            var argument_list_par = new NonTerminal("argument_list_par");
-
-            var function_call = new NonTerminal("function_call");
-
-            var return_expression = new NonTerminal("return_expression");
-
-            var member_access_segment = new NonTerminal("member_access_segment");
-            var member_access_segment_list = new NonTerminal("member_access_segment_list");
-            var member_access_segment_list_opt = new NonTerminal("member_access_segment_list_opt");
-
-            // Statements
-            var statement = new NonTerminal("statement", "statement");
-            var statement_list = new NonTerminal("statement_list");
-            var statement_list_opt = new NonTerminal("statement_list_opt");
-            var declaration_statement = new NonTerminal("declaration_statement");
-            var embedded_statement = new NonTerminal("embedded_statement");
-            var local_variable_declaration = new NonTerminal("local_variable_declaration");
-            var local_variable_declarator = new NonTerminal("local_variable_declarator");
-            var local_variable_declarators = new NonTerminal("local_variable_declarators");
-            var local_function_declaration = new NonTerminal("local_function_declaration");
-            var block = new NonTerminal("block");
-            var statement_expression = new NonTerminal("statement_expression");
-
-            // Program
-            var program = new NonTerminal("program");
-
+            var AssignOp = new NonTerminal("AssignOp");
+            var PostOp = new NonTerminal("PostOp");
+            var BinOp = new NonTerminal("BinOp");
+            var LUnOp = new NonTerminal("LUnOp");
+            var RUnOp = new NonTerminal("RUnOp");
             #endregion
 
-            #region operators, punctuation and delimiters
+            #region 2.2 Qualified Names
+            var ExpressionList = new NonTerminal("ExpressionList"/*, typeof(ExpressionList)*/);
+
+            var NewExpr = new NonTerminal("NewExpr"/*, typeof(NewExpr)*/);
+
+            var ArrayResolution = new NonTerminal("ArrayResolution");
+            #endregion
+
+            #region 2.3 Statement
+            var Condition = new NonTerminal("Condition"/*, typeof(Condition)*/);
+            var Statement = new NonTerminal("Statement"/*, typeof(Statement)*/);
+
+            var VarStmt = new NonTerminal("VarStmt");
+            var ExprStmt = new NonTerminal("ExprStmt"/*, typeof(ExprStmt)*/);
+
+            var Block = new NonTerminal("Block"/*, typeof(Block)*/);
+            var StmtList = new NonTerminal("StmtList"/*, typeof(StmtList)*/);
+            var FuncDefStmt = new NonTerminal("FuncDefStmt"/*, typeof(FuncDefStmt)*/);
+
+            var FlowControlStmt = new NonTerminal("FlowControlStmt"/*, typeof(FlowControlStmt)*/);
+            #endregion
+
+            #region 2.4 Program and Functions
+            var Prog = new NonTerminal("Prog");
+            var Element = new NonTerminal("Element");
+            var ElementList = new NonTerminal("ElementList");
+            #endregion
+            #endregion
+
+            #region 3. BNF Rules
+            #region 3.1 Expressions
+            ConstExpr.Rule = @true | @false | undefined | @null | @string | number;
+
+            BinExpr.Rule = Expr + BinOp + Expr;
+
+            UnaryExpr.Rule = LUnOp + Expr;
+
+            QualifiedName.Rule = MemberExpr | identifier;
+            AssignExpr.Rule = QualifiedName + AssignOp + Expr
+                | QualifiedName + PostOp;
+
+            FuncDefExpr.Rule = function + identifierOpt + lpr + ParameterList + rpr + Block;
+            ParameterList.Rule = MakeStarRule(ParameterList, comma, Parameter);
+            Parameter.Rule = identifier + InitializerOpt;
+
+            Expr.Rule = ConstExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr;// | NewExpr;
+            ParenExpr.Rule = lpr + Expr + rpr;
+            MemberExpr.Rule = Expr + dot + identifier;
+
+            VarStmt.Rule = var + VarExprList + semi;
+            VarExprList.Rule = MakePlusRule(VarExprList, comma, VarExpr);
+            VarExpr.Rule = identifier + InitializerOpt;
+            Initializer.Rule = ToTerm("=", "equals") + Expr;
+            InitializerOpt.Rule = Empty | Initializer;
+
+            NewExpr.Rule = @new + Expr + FunctionCall;
+
+            BinOp.Rule = ToTerm("+") | "-";
+            LUnOp.Rule = ToTerm("-") | "!" | @new;
+            AssignOp.Rule = ToTerm("=") | "+=" | "-=";
+            PostOp.Rule = ToTerm("--") | "++";
+
+            FunctionCallExpr.Rule = Expr + FunctionCall;
+            #endregion
+
+            #region 3.2 Qualified Names
+            FunctionCall.Rule = lpr + ArgumentList + rpr;
+            ArgumentList.Rule = MakeStarRule(ArgumentList, comma, Argument);
+            Argument.Rule = Expr | identifier + colon + Expr | @string + colon + Expr;
+
+            MemberExpr.Rule = Expr + dot + identifier;
+
+            ArrayResolution.Rule = lsbr + Expr + rsbr;
+            #endregion
+
+            #region 3.3 Statement
+            Condition.Rule = lpr + Expr + rpr;
+            ExprStmt.Rule = AssignExpr + semi
+                | FunctionCallExpr + semi;
+            FlowControlStmt.Rule = @return + semi
+                | @return + Expr + semi
+                | @throw + Expr + semi;
+
+            Statement.Rule = semi // Empty statement
+                | Block
+                | ExprStmt
+                | VarStmt
+                | FlowControlStmt;
+
+            StmtList.Rule = MakeStarRule(StmtList, null, Statement);
+
+            FuncDefStmt.Rule = function + identifier + lpr + ParameterList + rpr + Block;
+
+            Block.Rule = lcbr + StmtList + rcbr;
+            #endregion
+
+            #region 3.4 Program and Functions
+            Element.Rule = Statement | FuncDefStmt;
+
+            ElementList.Rule = MakeStarRule(ElementList, null, Element);
+
+            Prog.Rule = ElementList + Eof;
+            #endregion
+            #endregion
+
+            #region 4. Set root
+            Root = Prog;
+            #endregion
+
+            #region 5. Operators precedence
             RegisterOperators(1, "||");
             RegisterOperators(2, "&&");
             RegisterOperators(3, "|");
             RegisterOperators(4, "^");
             RegisterOperators(5, "&");
             RegisterOperators(6, "==", "!=");
-            RegisterOperators(7, "<", ">", "<=", ">=", "is", "as");
+            RegisterOperators(7, "<", ">", "<=", ">=", "is");
             RegisterOperators(8, "<<", ">>");
             RegisterOperators(9, "+", "-");
             RegisterOperators(10, "*", "/", "%");
             RegisterOperators(-2, "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
             RegisterOperators(-1, "?");
-
-            this.Delimiters = "{}[](),:;+-*/%&|^!~<>=";
-            this.MarkPunctuation(";", ",", "(", ")", "{", "}", "[", "]", ":");
-            this.MarkTransient(statement, embedded_statement, expression, literal, bin_op);
-
-            this.AddTermsReportGroup("assignment", "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
-            this.AddTermsReportGroup("constant", number, strings);
-            this.AddTermsReportGroup("constant", "true", "false", "null", "undefined");
-            this.AddTermsReportGroup("unary operator", "+", "-", "!", "~");
-
-            this.AddToNoReportGroup(comma, semi);
-            this.AddToNoReportGroup("var", "new", "++", "--", "this", "base", "typeof", "{", "}", "[", "]");
             #endregion
 
-            #region Rules
-            // Expressions
-            expression.Rule = bin_op_expression | primary_expression;
-            bin_op_expression.Rule = expression + bin_op + expression;
-            primary_expression.Rule = literal | member_access;
-            literal.Rule = number | strings | "true" | "false" | "null" | "undefined";
-            initializer_value.Rule = expression;
-            member_access.Rule = identifier + member_access_segment_list_opt;
-            return_expression.Rule = ToTerm("return") + expression;
-
-            member_access_segment.Rule = dot + identifier | argument_list_par;
-            member_access_segment_list.Rule = MakePlusRule(member_access_segment_list, null, member_access_segment);
-            member_access_segment_list_opt.Rule = Empty | member_access_segment_list;
-
-            argument.Rule = expression | identifier + ":" + expression;
-            argument_list.Rule = MakePlusRule(argument_list, comma, argument);
-            argument_list_opt.Rule = Empty | argument_list;
-            argument_list_par.Rule = lpar + argument_list_opt + rpar;
-
-            bin_op.Rule = ToTerm("+") | "-";
-            assignment_operator.Rule = ToTerm("=") | "+=" | "-=";
-
-            // Statements
-            statement.Rule = declaration_statement | embedded_statement;
-            statement.ErrorRule = SyntaxError + semi; // Skip all until semicolon
-            statement_list.Rule = MakePlusRule(statement_list, null, statement);
-            statement_list_opt.Rule = Empty | statement_list;
-
-            parameter.Rule = identifier | identifier + "=" + expression;
-            parameter_list.Rule = MakePlusRule(parameter_list, comma, parameter);
-            parameter_list_opt.Rule = Empty | parameter_list;
-
-            declaration_statement.Rule = local_variable_declaration + semi | local_function_declaration;
-            local_variable_declaration.Rule = vark + local_variable_declarators;
-            local_variable_declarator.Rule = identifier | identifier + "=" + initializer_value;
-            local_variable_declarators.Rule = MakePlusRule(local_variable_declarators, comma, local_variable_declarator);
-            local_function_declaration.Rule = ToTerm("function") + identifier + "(" + parameter_list_opt + ")" + block;
-
-            embedded_statement.Rule = block | semi /* Empty statement */ | statement_expression + semi | return_expression + semi | function_call + semi;
-            function_call.Rule = member_access;
-
-            block.Rule = lbr + statement_list_opt + rbr;
-
-            statement_expression.Rule = member_access + assignment_operator + expression;
-
-            // Program
-            program.Rule = statement_list_opt;
+            #region 6. Punctuation Symbols
+            Delimiters = "{}[](),:;+-*/%&|^!~<>=";
+            MarkPunctuation(";", ",", "(", ")", "{", "}", "[", "]", ":");
             #endregion
 
-            this.Root = program;
+            MarkTransient(Element, Statement, InitializerOpt, Expr, ParenExpr, BinOp, LUnOp, AssignOp, PostOp, FunctionCall, QualifiedName);
+            //LanguageFlags = Irony.Parsing.LanguageFlags.CreateAst;
+            #endregion
         }
     }
 }

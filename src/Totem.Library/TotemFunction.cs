@@ -9,7 +9,7 @@ namespace Totem.Library
         private readonly TotemEnvironment environment;
         private TotemEnvironment executionEnvironment;
 
-        public TotemValue Execute(TotemArguments arguments)
+        public override TotemValue Execute(TotemArguments arguments)
         {
             arguments = arguments ?? new TotemArguments();
             executionEnvironment = new TotemEnvironment(environment);
