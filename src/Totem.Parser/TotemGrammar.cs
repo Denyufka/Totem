@@ -2,7 +2,7 @@
 
 namespace Totem.Compiler
 {
-    [Language("Totem", "0.2", "A totem parser")]
+    [Language("Totem", "0.5", "A totem parser")]
     public partial class TotemGrammar : Irony.Parsing.Grammar
     {
         public TotemGrammar()
@@ -47,6 +47,8 @@ namespace Totem.Compiler
             var @return = ToTerm("return", "return");
             var @throw = ToTerm("throw", "throw");
             var function = ToTerm("function", "function");
+            var @if = ToTerm("if", "if");
+            var @else = ToTerm("else", "else");
             #endregion
 
             #region 2. Non Terminals
@@ -102,6 +104,7 @@ namespace Totem.Compiler
             var FuncDefStmt = new NonTerminal("FuncDefStmt"/*, typeof(FuncDefStmt)*/);
 
             var FlowControlStmt = new NonTerminal("FlowControlStmt"/*, typeof(FlowControlStmt)*/);
+            var IfElseStmt = new NonTerminal("IfElseStmt");
             #endregion
 
             #region 2.4 Program and Functions
@@ -139,7 +142,7 @@ namespace Totem.Compiler
 
             NewExpr.Rule = @new + Expr + FunctionCall;
 
-            BinOp.Rule = ToTerm("+") | "-";
+            BinOp.Rule = ToTerm("+") | "-" | lt | gt;
             LUnOp.Rule = ToTerm("-") | "!" | @new;
             AssignOp.Rule = ToTerm("=") | "+=" | "-=";
             PostOp.Rule = ToTerm("--") | "++";
@@ -169,7 +172,11 @@ namespace Totem.Compiler
                 | Block
                 | ExprStmt
                 | VarStmt
+                | IfElseStmt
                 | FlowControlStmt;
+
+            IfElseStmt.Rule = @if + Condition + Statement
+                | @if + Condition + Statement + @else + Statement;
 
             StmtList.Rule = MakeStarRule(StmtList, null, Statement);
 

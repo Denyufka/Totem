@@ -36,6 +36,17 @@ namespace Totem.Library
             get { return isFloatingPoint ? fValue : lValue; }
         }
 
+        public double IntValue
+        {
+            get
+            {
+                if (isFloatingPoint)
+                    return int.MaxValue;
+                else
+                    return lValue;
+            }
+        }
+
         public override TotemValue Add(TotemValue other)
         {
             if (other is TotemNumber)
@@ -60,7 +71,7 @@ namespace Totem.Library
                 var n = (TotemNumber)other;
                 if (n.isFloatingPoint || isFloatingPoint)
                 {
-                    return new TotemNumber(Convert.ToDouble(Value) - Convert.ToDouble(n.Value));
+                    return new TotemNumber(ToDouble(this) - ToDouble(n));
                 }
                 else
                 {
@@ -70,9 +81,40 @@ namespace Totem.Library
             return base.Subtract(other);
         }
 
+        public override TotemValue LessThen(TotemValue other)
+        {
+            if (other is TotemNumber)
+            {
+                return new TotemBool(ToDouble(this) < ToDouble((TotemNumber)other));
+            }
+            return base.LessThen(other);
+        }
+
+        public override TotemValue GreaterThen(TotemValue other)
+        {
+            if (other is TotemNumber)
+            {
+                return new TotemBool(ToDouble(this) > ToDouble((TotemNumber)other));
+            }
+            return base.LessThen(other);
+        }
+
         public override string ToString()
         {
             return Value.ToString();
+        }
+
+        private static Double ToDouble(TotemNumber num)
+        {
+            if (num.isFloatingPoint)
+                return num.fValue;
+            else
+                return (double)num.lValue;
+        }
+
+        public override TotemType TotemType
+        {
+            get { throw new NotImplementedException(); }
         }
     }
 }

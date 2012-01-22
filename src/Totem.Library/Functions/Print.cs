@@ -18,7 +18,6 @@ namespace Totem.Library.Functions
             int i = 0;
             foreach (var a in rest)
             {
-                i++;
                 string name = null;
                 if (a.Name != null)
                     name = a.Name;
@@ -27,14 +26,10 @@ namespace Totem.Library.Functions
 
                 string value = a.Value.ToString();
                 str = str.Replace("{" + name + "}", value);
+                i++;
             }
             Console.WriteLine(str);
             return TotemValue.Undefined;
-        }
-
-        protected override TotemValue TotemRun()
-        {
-            throw new System.NotImplementedException();
         }
     }
 }

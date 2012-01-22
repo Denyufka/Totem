@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Totem.Library
 {
@@ -7,12 +8,13 @@ namespace Totem.Library
         private readonly TotemParameter[] parametersDefinition;
         private readonly string name;
         private readonly TotemEnvironment environment;
-        private TotemEnvironment executionEnvironment;
+        private Stack<TotemEnvironment> executionEnvironments = new Stack<TotemEnvironment>();
 
         public override TotemValue Execute(TotemArguments arguments)
         {
-            arguments = arguments ?? new TotemArguments();
-            executionEnvironment = new TotemEnvironment(environment);
+            arguments = arguments ?? new TotemArguments(null);
+            var executionEnvironment = new TotemEnvironment(environment);
+            executionEnvironments.Push(executionEnvironment);
             executionEnvironment.Declare("arguments");
             executionEnvironment.Set("arguments", arguments);
             for (int i = 0; i < parametersDefinition.Length; i++)
@@ -40,12 +42,13 @@ namespace Totem.Library
             finally
             {
                 executionEnvironment = null;
+                executionEnvironments.Pop();
             }
         }
 
         public string Name { get { return name; } }
 
-        protected TotemEnvironment Environment { get { return executionEnvironment; } }
+        protected TotemEnvironment Environment { get { return executionEnvironments.Peek(); } }
 
         protected void LocalDeclare(string name)
         {
@@ -68,7 +71,10 @@ namespace Totem.Library
             Environment.Set(name, value);
         }
 
-        protected abstract TotemValue TotemRun();
+        protected virtual TotemValue TotemRun()
+        {
+            throw new NotImplementedException("Either Execute or TotemRun needs to be implemented in a subclass");
+        }
 
         protected TotemFunction(TotemEnvironment env, string name, TotemParameter[] parametersDefinition)
         {
@@ -80,6 +86,11 @@ namespace Totem.Library
         public override TotemValue ByTotemValue
         {
             get { return this; }
+        }
+
+        public override TotemType TotemType
+        {
+            get { throw new NotImplementedException(); }
         }
     }
 }

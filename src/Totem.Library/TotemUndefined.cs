@@ -19,5 +19,10 @@ namespace Totem.Library
         {
             get { return this; }
         }
+
+        public override TotemType TotemType
+        {
+            get { throw new System.NotImplementedException(); }
+        }
     }
 }
