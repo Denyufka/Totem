@@ -4,9 +4,12 @@ namespace Totem.Library
 {
     public abstract class TotemValue
     {
+        public static TotemValue Undefined { get { return TotemUndefined.Value; } }
+        public static TotemValue Null { get { return TotemNull.Value; } }
+
         public abstract TotemValue ByTotemValue { get; }
 
-        public abstract TotemType TotemType { get; }
+        public abstract TotemType Type { get; }
 
         public virtual TotemValue Execute(TotemArguments arguments)
         {
@@ -15,7 +18,7 @@ namespace Totem.Library
 
         public virtual TotemValue GetProp(string name)
         {
-            return TotemType.GetProp(this, name);
+            return Type.GetProp(this, name);
         }
 
         public virtual TotemValue Add(TotemValue other)
@@ -28,40 +31,112 @@ namespace Totem.Library
             throw new InvalidOperationException("Can't subtract a " + other.GetType().Name + " to a " + GetType().Name);
         }
 
-        public virtual TotemValue LessThen(TotemValue other)
+        public virtual TotemValue MultiplyWith(TotemValue other)
+        {
+            throw new InvalidOperationException("Can't multiply a " + other.GetType().Name + " with a " + GetType().Name);
+        }
+
+        public virtual TotemValue DivideBy(TotemValue other)
+        {
+            throw new InvalidOperationException("Can't divide a " + GetType().Name + " with a " + other.GetType().Name);
+        }
+
+        public virtual TotemValue LessThan(TotemValue other)
         {
             throw new InvalidOperationException("Can't compare a " + other.GetType().Name + " to a " + GetType().Name);
         }
 
-        public virtual TotemValue GreaterThen(TotemValue other)
+        public virtual TotemValue GreaterThan(TotemValue other)
         {
             throw new InvalidOperationException("Can't compare a " + other.GetType().Name + " to a " + GetType().Name);
         }
 
-        public static TotemValue Undefined { get { return TotemUndefined.Value; } }
-        public static TotemValue Null { get { return TotemNull.Value; } }
+        public virtual TotemValue LessThanOrEqual(TotemValue other)
+        {
+            throw new InvalidOperationException("Can't compare a " + other.GetType().Name + " to a " + GetType().Name);
+        }
 
-        public static TotemValue Add(TotemValue left, TotemValue right)
+        public virtual TotemValue GreaterThanOrEqual(TotemValue other)
+        {
+            throw new InvalidOperationException("Can't compare a " + other.GetType().Name + " to a " + GetType().Name);
+        }
+
+        public virtual TotemValue Increment()
+        {
+            throw new InvalidOperationException("Can't increment a " + GetType().Name);
+        }
+
+        public virtual TotemValue Decrement()
+        {
+            throw new InvalidOperationException("Can't decrement a " + GetType().Name);
+        }
+
+        public static TotemValue operator +(TotemValue left, TotemValue right)
         {
             return left.Add(right);
         }
 
-        public static TotemValue Subtract(TotemValue left, TotemValue right)
+        public static TotemValue operator -(TotemValue left, TotemValue right)
         {
             return left.Subtract(right);
         }
 
-        public static TotemValue LessThen(TotemValue left, TotemValue right)
+        public static TotemValue operator *(TotemValue left, TotemValue right)
         {
-            return left.LessThen(right);
+            return left.MultiplyWith(right);
         }
 
-        public static TotemValue GreaterThen(TotemValue left, TotemValue right)
+        public static TotemValue operator /(TotemValue left, TotemValue right)
         {
-            return left.GreaterThen(right);
+            return left.DivideBy(right);
         }
 
-        public static bool IsTrue(TotemValue value)
+        public static TotemValue operator ==(TotemValue left, TotemValue right)
+        {
+            return new TotemBool(left.Equals(right));
+        }
+
+        public static TotemValue operator !=(TotemValue left, TotemValue right)
+        {
+            return new TotemBool(!left.Equals(right));
+        }
+
+        public static TotemValue operator <(TotemValue left, TotemValue right)
+        {
+            return left.LessThan(right);
+        }
+
+        public static TotemValue operator >(TotemValue left, TotemValue right)
+        {
+            return left.GreaterThan(right);
+        }
+
+        public static TotemValue operator <=(TotemValue left, TotemValue right)
+        {
+            return left.LessThanOrEqual(right);
+        }
+
+        public static TotemValue operator >=(TotemValue left, TotemValue right)
+        {
+            return left.GreaterThanOrEqual(right);
+        }
+
+        public static TotemValue operator !(TotemValue value)
+        {
+            return (bool)value ? new TotemBool(false) : new TotemBool(true);
+        }
+
+        public static TotemValue operator ++(TotemValue value)
+        {
+            return value.Increment();
+        }
+
+        public static TotemValue operator --(TotemValue value)
+        {
+            return value.Decrement();
+        }
+
+        public static explicit operator bool(TotemValue value)
         {
             return !(value is TotemUndefined)
                 && !(value is TotemNull)

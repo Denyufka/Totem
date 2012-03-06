@@ -23,6 +23,7 @@ namespace Totem.Compiler
         TypeReference arguments;
         TypeReference parameter;
         TypeReference @bool;
+        TypeReference scope;
 
         TypeReference arr_parameters;
         TypeReference sys_bool;
@@ -43,27 +44,44 @@ namespace Totem.Compiler
         MethodReference parameter_ctor;
         MethodReference arguments_ctor;
         MethodReference arguments_add;
-        MethodReference arguments_set_this;
 
         MethodReference value_add;
         MethodReference value_sub;
+        MethodReference value_mul;
+        MethodReference value_div;
+        MethodReference value_eq;
+        MethodReference value_neq;
         MethodReference value_gt;
         MethodReference value_lt;
+        MethodReference value_lte;
+        MethodReference value_gte;
+        MethodReference value_incr;
         MethodReference value_istrue;
+
+        MethodReference scope_ctor;
 
         MethodReference get_prop;
 
         MethodReference bool_ctor;
 
-        HashSet<string> fn_names = new HashSet<string>() { "Main" };
-        Stack<ParameterCount> paramCount = new Stack<ParameterCount>();
+        MethodReference dispose;
 
-        private class ParameterCount
+        HashSet<string> fn_names = new HashSet<string>() { "Main" };
+        Stack<FunctionPoints> functionPoints = new Stack<FunctionPoints>();
+
+        private class FunctionPoints
         {
             public HashSet<VariableDefinition> Avail = new HashSet<VariableDefinition>();
             public HashSet<VariableDefinition> SVars = new HashSet<VariableDefinition>();
             public MethodDefinition MethodDefinition { get; set; }
             public List<Func<Instruction, Instruction>> OnNextStatement = new List<Func<Instruction, Instruction>>();
+            public Stack<LoopDec> LoopDecs = new Stack<LoopDec>();
+        }
+
+        private class LoopDec
+        {
+            public List<Instruction> ContinueAfter = new List<Instruction>();
+            public List<Instruction> BreakAfter = new List<Instruction>();
         }
 
         internal Generator(string nsp)
@@ -105,6 +123,7 @@ namespace Totem.Compiler
             arguments = Load(typeof(TotemArguments));
             parameter = Load(typeof(TotemParameter));
             @bool = Load(typeof(TotemBool));
+            scope = Load(typeof(TotemFunction.ScopeWrapper));
 
             arr_parameters = Load(typeof(TotemParameter[]));
             sys_bool = Load(typeof(bool));
@@ -114,11 +133,11 @@ namespace Totem.Compiler
 
             function_run = Load(typeof(TotemFunction).GetMethod("TotemRun", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
             execute = Load(typeof(TotemValue).GetMethod("Execute"));
-            function_ctor = Load(typeof(TotemFunction).GetConstructor(r.BindingFlags.NonPublic | r.BindingFlags.Instance, null, new Type[] { typeof(TotemEnvironment), typeof(string), typeof(TotemParameter[]) }, null));
+            function_ctor = Load(typeof(TotemFunction).GetConstructor(r.BindingFlags.NonPublic | r.BindingFlags.Instance, null, new Type[] { typeof(TotemScope), typeof(string), typeof(TotemParameter[]) }, null));
             function_local_set = Load(typeof(TotemFunction).GetMethod("LocalSet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
             function_local_get = Load(typeof(TotemFunction).GetMethod("LocalGet", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
             function_local_dec = Load(typeof(TotemFunction).GetMethod("LocalDec", r.BindingFlags.NonPublic | r.BindingFlags.Instance));
-            function_env = Load(typeof(TotemFunction).GetProperty("Environment", r.BindingFlags.NonPublic | r.BindingFlags.Instance).GetGetMethod(true));
+            function_env = Load(typeof(TotemFunction).GetProperty("Scope", r.BindingFlags.NonPublic | r.BindingFlags.Instance).GetGetMethod(true));
 
             arguments_ctor = Load(typeof(TotemArguments).GetConstructor(new Type[] { typeof(TotemValue) }));
             arguments_add = Load(typeof(TotemArguments).GetMethod("Add", r.BindingFlags.Public | r.BindingFlags.Instance | r.BindingFlags.DeclaredOnly));
@@ -132,11 +151,22 @@ namespace Totem.Compiler
             undefined = Load(typeof(TotemValue).GetProperty("Undefined").GetGetMethod());
             @null = Load(typeof(TotemValue).GetProperty("Null").GetGetMethod());
 
-            value_add = Load(typeof(TotemValue).GetMethod("Add", r.BindingFlags.Static | r.BindingFlags.Public));
-            value_sub = Load(typeof(TotemValue).GetMethod("Subtract", r.BindingFlags.Static | r.BindingFlags.Public));
-            value_lt = Load(typeof(TotemValue).GetMethod("LessThen", r.BindingFlags.Static | r.BindingFlags.Public));
-            value_gt = Load(typeof(TotemValue).GetMethod("GreaterThen", r.BindingFlags.Static | r.BindingFlags.Public));
-            value_istrue = Load(typeof(TotemValue).GetMethod("IsTrue", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_add = Load(typeof(TotemValue).GetMethod("op_Addition", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_sub = Load(typeof(TotemValue).GetMethod("op_Subtraction", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_mul = Load(typeof(TotemValue).GetMethod("op_Multiply", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_div = Load(typeof(TotemValue).GetMethod("op_Division", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_eq = Load(typeof(TotemValue).GetMethod("op_Equality", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_neq = Load(typeof(TotemValue).GetMethod("op_Inequality", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_lt = Load(typeof(TotemValue).GetMethod("op_LessThan", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_gt = Load(typeof(TotemValue).GetMethod("op_GreaterThan", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_lte = Load(typeof(TotemValue).GetMethod("op_LessThanOrEqual", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_gte = Load(typeof(TotemValue).GetMethod("op_GreaterThanOrEqual", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_incr = Load(typeof(TotemValue).GetMethod("op_Increment", r.BindingFlags.Static | r.BindingFlags.Public));
+            value_istrue = Load(typeof(TotemValue).GetMethod("op_Explicit", r.BindingFlags.Static | r.BindingFlags.Public, null, r.CallingConventions.Standard, new Type[] { typeof(TotemValue) }, null));
+
+            scope_ctor = Load(typeof(TotemFunction.ScopeWrapper).GetConstructor(new Type[] { typeof(TotemFunction) }));
+
+            dispose = Load(typeof(IDisposable).GetMethod("Dispose"));
 
             get_prop = Load(typeof(TotemValue).GetMethod("GetProp"));
 
@@ -159,7 +189,7 @@ namespace Totem.Compiler
             var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, Load(typeof(void)));
             var ctorIl = ctor.Body.GetILProcessor();
             ctorIl.Emit(OpCodes.Ldarg_0);
-            ctorIl.Emit(OpCodes.Call, Load(typeof(TotemEnvironment).GetProperty("Global").GetGetMethod()));
+            ctorIl.Emit(OpCodes.Call, Load(typeof(TotemScope).GetProperty("Global").GetGetMethod()));
             ctorIl.Emit(OpCodes.Ldstr, "Main");
             ctorIl.Emit(OpCodes.Ldnull);
             ctorIl.Emit(OpCodes.Call, function_ctor);
@@ -182,7 +212,7 @@ namespace Totem.Compiler
             md = new MethodDefinition("TotemRun", MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual, value);
             il = md.Body.GetILProcessor();
 
-            paramCount.Push(new ParameterCount
+            functionPoints.Push(new FunctionPoints
             {
                 Avail = new HashSet<VariableDefinition>(),
                 SVars = new HashSet<VariableDefinition>(),
@@ -215,7 +245,7 @@ namespace Totem.Compiler
         {
             var fn = new TypeDefinition(nsp, mName, TypeAttributes.Public | TypeAttributes.Sealed, function);
             var ctor = new MethodDefinition(".ctor", MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.Public, Load(typeof(void)));
-            ctor.Parameters.Add(new ParameterDefinition("env", ParameterAttributes.In, Load(typeof(TotemEnvironment))));
+            ctor.Parameters.Add(new ParameterDefinition("env", ParameterAttributes.In, Load(typeof(TotemScope))));
             ctor.Parameters.Add(new ParameterDefinition("name", ParameterAttributes.In, Load(typeof(string))));
             ctor.Parameters.Add(new ParameterDefinition("parameters", ParameterAttributes.In, arr_parameters));
             var ctorIl = ctor.Body.GetILProcessor();
@@ -229,7 +259,7 @@ namespace Totem.Compiler
 
             var fnc = new MethodDefinition("TotemRun", MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual, value);
             var fnil = fnc.Body.GetILProcessor();
-            paramCount.Push(new ParameterCount
+            functionPoints.Push(new FunctionPoints
             {
                 Avail = new HashSet<VariableDefinition>(),
                 SVars = new HashSet<VariableDefinition>(),
@@ -241,7 +271,7 @@ namespace Totem.Compiler
             OnNextStatement(next);
             fnil.Emit(OpCodes.Call, undefined);
             fnil.Emit(OpCodes.Ret);
-            paramCount.Pop();
+            functionPoints.Pop();
             fn.Methods.Add(fnc);
 
             module.Types.Add(fn);
@@ -281,10 +311,11 @@ namespace Totem.Compiler
             var start = current;
             il.Add(ref current, il.Create(OpCodes.Nop));
             current = OnNextStatement(current);
+            int pn;
             switch (node.Term.Name)
             {
                 case "VarStmt":
-                    GenerateDeclaration(il, start, ref current, node);
+                    GenerateDeclaration(il, ref start, ref current, node);
                     break;
                 case "FuncDefStmt":
                     var name = node.ChildNodes[1].Token.ValueString;
@@ -309,6 +340,12 @@ namespace Totem.Compiler
                             }
                             il.Add(ref current, il.Create(OpCodes.Ret));
                             break;
+                        case "continue":
+                            ContinueAfter(current);
+                            break;
+                        case "break":
+                            BreakAfter(current);
+                            break;
                         default:
                             throw new InvalidOperationException("Unknown flow control keyword " + keyword);
                     }
@@ -318,7 +355,7 @@ namespace Totem.Compiler
                     il.Add(ref current, il.Create(OpCodes.Pop));
                     break;
                 case "IfElseStmt":
-                    var pn = GetSVar(sys_bool);
+                    pn = GetSVar(sys_bool);
                     GenerateExpression(il, ref start, ref current, node.ChildNodes[1].ChildNodes[0]);
                     il.Add(ref current, il.Create(OpCodes.Call, value_istrue));
                     il.Add(ref current, il.Create(OpCodes.Ldc_I4_0));
@@ -336,6 +373,7 @@ namespace Totem.Compiler
                         il.Add(ref insBreakToFalseAfter, il.Create(OpCodes.Brtrue, current));
                         GenerateStatement(il, ref current, node.ChildNodes[4]);
                         il.Add(ref current, il.Create(OpCodes.Nop));
+
                         OnNextStatement(next =>
                         {
                             il.Add(ref insBreakToAfterFalseAfter, il.Create(OpCodes.Br, next));
@@ -350,13 +388,80 @@ namespace Totem.Compiler
                     }
 
                     break;
+                case "ForStmt":
+                    AddLoopDec();
+                    // Push new scope
+                    pn = GetVar(scope);
+                    il.Add(ref start, il.Create(OpCodes.Ldarg_0));
+                    il.Add(ref start, il.Create(OpCodes.Newobj, scope_ctor));
+                    il.Add(ref start, il.Create(OpCodes.Stloc, pn));
+
+                    // Initializer
+                    var initializer = node.ChildNodes[1];
+                    if (initializer.ChildNodes.Count != 0)
+                    {
+                        initializer = initializer.ChildNodes[0];
+                        if (initializer.ChildNodes.Count == 1)
+                        {
+                            GenerateExpression(il, ref start, ref current, initializer.ChildNodes[0]);
+                            il.Add(ref current, il.Create(OpCodes.Pop));
+                        }
+                        else
+                        {
+                            foreach (var dec in initializer.ChildNodes[1].ChildNodes)
+                                GenerateDeclaration(il, ref start, ref current, dec);
+                        }
+                    }
+                    var jumpToConditionAfter = current;
+
+                    // Body
+                    GenerateStatement(il, ref current, node.ChildNodes[4]);
+                    il.Add(ref current, il.Create(OpCodes.Nop));
+
+                    // Increment
+                    Instruction incr = il.Add(ref current, il.Create(OpCodes.Nop));
+                    var increment = node.ChildNodes[3];
+                    if (increment.ChildNodes.Count != 0)
+                    {
+                        GenerateExpression(il, ref start, ref current, increment.ChildNodes[0]);
+                    }
+
+                    // Condition
+                    Instruction cond = il.Add(ref current, il.Create(OpCodes.Nop));
+                    il.Add(ref jumpToConditionAfter, il.Create(OpCodes.Br, cond));
+                    var condition = node.ChildNodes[2];
+                    if (condition.ChildNodes.Count == 0)
+                    {
+                        il.Add(ref current, il.Create(OpCodes.Ldc_I4_1));
+                        il.Add(ref current, il.Create(OpCodes.Call, bool_ctor)); // Create TotemBool true
+                    }
+                    else
+                    {
+                        GenerateExpression(il, ref start, ref current, condition.ChildNodes[0]);
+                    }
+                    il.Add(ref current, il.Create(OpCodes.Call, value_istrue));
+                    //ContinueAfter(current);
+                    il.Add(ref current, il.Create(OpCodes.Brtrue, jumpToConditionAfter.Next));
+
+                    // Pop scope
+                    il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                    RemLoopDec(il, incr, current);
+                    il.Add(ref current, il.Create(OpCodes.Callvirt, dispose));
+                    RelVar(pn);
+                    break;
+                case "Block":
+                    foreach (var stmt in node.ChildNodes[0].ChildNodes)
+                    {
+                        GenerateStatement(il, ref current, stmt);
+                    }
+                    break;
                 default:
                     throw new InvalidOperationException("Term " + node.Term.Name + " is not a statement");
             }
             RelSVars();
         }
 
-        private void GenerateDeclaration(ILProcessor il, Instruction start, ref Instruction current, ParseTreeNode node)
+        private void GenerateDeclaration(ILProcessor il, ref Instruction start, ref Instruction current, ParseTreeNode node)
         {
             string name;
             switch (node.Term.Name)
@@ -365,19 +470,22 @@ namespace Totem.Compiler
                     var declarators = node.ChildNodes[1].ChildNodes;
                     foreach (var dec in declarators)
                     {
-                        name = dec.ChildNodes[0].Token.ValueString;
-                        il.Add(ref current, il.Create(OpCodes.Ldarg_0));
-                        il.Add(ref current, il.Create(OpCodes.Ldstr, name));
-                        if (dec.ChildNodes.Count > 1)
-                        {
-                            GenerateExpression(il, ref start, ref current, dec.ChildNodes[1].ChildNodes[1]);
-                        }
-                        else
-                        {
-                            il.Add(ref current, il.Create(OpCodes.Call, undefined));
-                        }
-                        il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_dec));
+                        GenerateDeclaration(il, ref start, ref current, dec);
                     }
+                    break;
+                case "VarExpr":
+                    name = node.ChildNodes[0].Token.ValueString;
+                    il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                    il.Add(ref current, il.Create(OpCodes.Ldstr, name));
+                    if (node.ChildNodes.Count > 1)
+                    {
+                        GenerateExpression(il, ref start, ref current, node.ChildNodes[1].ChildNodes[1]);
+                    }
+                    else
+                    {
+                        il.Add(ref current, il.Create(OpCodes.Call, undefined));
+                    }
+                    il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_dec));
                     break;
                 default:
                     throw new InvalidOperationException("Term " + node.Term.Name + " is not a declaration statement");
@@ -412,15 +520,37 @@ namespace Totem.Compiler
                         case ">":
                             il.Add(ref current, il.Create(OpCodes.Call, value_gt));
                             break;
+                        case "==":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_eq));
+                            break;
+                        case "!=":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_neq));
+                            break;
+                        case "*":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_mul));
+                            break;
+                        case "/":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_div));
+                            break;
+                        case "<=":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_lte));
+                            break;
+                        case ">=":
+                            il.Add(ref current, il.Create(OpCodes.Call, value_gte));
+                            break;
                         default:
                             throw new InvalidOperationException("Unknown bin expression key symbol " + keySymbol);
                     }
                     break;
                 case "FunctionCallExpr":
                     pn = GetSVar(arguments);
+                    var mbr = -1;
                     if (node.ChildNodes[0].Term.Name == "MemberExpr")
                     {
+                        mbr = GetSVar(value);
                         GenerateExpression(il, ref start, ref prev, node.ChildNodes[0].ChildNodes[0]);
+                        il.Add(ref prev, il.Create(OpCodes.Dup));
+                        il.Add(ref prev, il.Create(OpCodes.Stloc, mbr));
                     }
                     else
                     {
@@ -443,7 +573,16 @@ namespace Totem.Compiler
                         il.Add(ref prev, il.Create(OpCodes.Callvirt, arguments_add));
                     }
                     start = prev;
-                    GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
+                    if (mbr == -1)
+                    {
+                        GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
+                    }
+                    else
+                    {
+                        il.Add(ref current, il.Create(OpCodes.Ldloc, mbr));
+                        il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].ChildNodes[2].Token.ValueString));
+                        il.Add(ref current, il.Create(OpCodes.Callvirt, get_prop));
+                    }
                     il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
                     il.Add(ref current, il.Create(OpCodes.Callvirt, execute));
                     break;
@@ -452,13 +591,33 @@ namespace Totem.Compiler
                     {
                         case "identifier":
                             pn = GetSVar(value);
-                            GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
-                            il.Add(ref start, il.Create(OpCodes.Stloc, pn));
-                            il.Add(ref current, il.Create(OpCodes.Ldarg_0));
-                            il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
-                            il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
-                            il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_set));
-                            il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                            if (node.ChildNodes.Count == 3)
+                            {
+                                GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
+                                il.Add(ref start, il.Create(OpCodes.Stloc, pn));
+                                il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                                il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
+                                il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                                il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_set));
+                                il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                            }
+                            else
+                            {
+                                var pn2 = GetSVar(value);
+                                il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                                il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
+                                il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_get));
+                                il.Add(ref current, il.Create(OpCodes.Dup));
+                                il.Add(ref current, il.Create(OpCodes.Stloc, pn));
+                                // Increment and restore
+                                il.Add(ref current, il.Create(OpCodes.Call, value_incr));
+                                il.Add(ref current, il.Create(OpCodes.Stloc, pn2));
+                                il.Add(ref current, il.Create(OpCodes.Ldarg_0));
+                                il.Add(ref current, il.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
+                                il.Add(ref current, il.Create(OpCodes.Ldloc, pn2));
+                                il.Add(ref current, il.Create(OpCodes.Callvirt, function_local_set));
+                                il.Add(ref current, il.Create(OpCodes.Ldloc, pn));
+                            }
                             break;
                         default:
                             throw new InvalidOperationException("Invalid QualifiedName term " + node.ChildNodes[0].Term.Name);
@@ -529,19 +688,19 @@ namespace Totem.Compiler
 
         private Instruction OnNextStatement(Instruction current)
         {
-            paramCount.Peek().OnNextStatement.ForEach(ons => current = ons(current));
-            paramCount.Peek().OnNextStatement.Clear();
+            functionPoints.Peek().OnNextStatement.ForEach(ons => current = ons(current));
+            functionPoints.Peek().OnNextStatement.Clear();
             return current;
         }
 
         private void OnNextStatement(Func<Instruction, Instruction> func)
         {
-            paramCount.Peek().OnNextStatement.Add(func);
+            functionPoints.Peek().OnNextStatement.Add(func);
         }
 
         private int GetVar(TypeReference type)
         {
-            var p = paramCount.Peek();
+            var p = functionPoints.Peek();
             int pn = -1;
             foreach (var param in p.Avail)
             {
@@ -563,13 +722,13 @@ namespace Totem.Compiler
 
         private void RelVar(int pn)
         {
-            var p = paramCount.Peek();
+            var p = functionPoints.Peek();
             p.Avail.Add(p.MethodDefinition.Body.Variables[pn]);
         }
 
         private int GetSVar(TypeReference type)
         {
-            var p = paramCount.Peek();
+            var p = functionPoints.Peek();
             var pn = GetVar(type);
             p.SVars.Add(p.MethodDefinition.Body.Variables[pn]);
             return pn;
@@ -577,9 +736,34 @@ namespace Totem.Compiler
 
         private void RelSVars()
         {
-            var p = paramCount.Peek();
+            var p = functionPoints.Peek();
             foreach (var sv in p.SVars)
                 p.Avail.Add(sv);
+        }
+
+        private void AddLoopDec()
+        {
+            var p = functionPoints.Peek();
+            p.LoopDecs.Push(new LoopDec());
+        }
+
+        private void ContinueAfter(Instruction instruction)
+        {
+            functionPoints.Peek().LoopDecs.Peek().ContinueAfter.Add(instruction);
+        }
+
+        private void BreakAfter(Instruction instruction)
+        {
+            functionPoints.Peek().LoopDecs.Peek().BreakAfter.Add(instruction);
+        }
+
+        private void RemLoopDec(ILProcessor il, Instruction continuePoint, Instruction breakPoint)
+        {
+            var ld = functionPoints.Peek().LoopDecs.Pop();
+            foreach (var c in ld.ContinueAfter)
+                il.InsertAfter(c, il.Create(OpCodes.Br, continuePoint));
+            foreach (var c in ld.BreakAfter)
+                il.InsertAfter(c, il.Create(OpCodes.Br, breakPoint));
         }
 
         private string MakeFunctionName(string name)

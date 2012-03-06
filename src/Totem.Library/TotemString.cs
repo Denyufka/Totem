@@ -15,9 +15,9 @@ namespace Totem.Library
             get { return value; }
         }
 
-        public override TotemType TotemType
+        public override TotemType Type
         {
-            get { return Types.String.Type; }
+            get { return TotemType.Resolve<Types.String>(); }
         }
 
         public override TotemValue ByTotemValue

@@ -6,7 +6,7 @@ namespace Totem.Library
         private Function function;
 
         public ClrFunction(string name, Function function)
-            : base(TotemEnvironment.Global, name, new TotemParameter[0])
+            : base(TotemScope.Global, name, new TotemParameter[0])
         {
             this.function = function;
         }

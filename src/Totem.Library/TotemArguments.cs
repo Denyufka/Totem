@@ -75,7 +75,7 @@ namespace Totem.Library
 
         #endregion
 
-        public override TotemType TotemType
+        public override TotemType Type
         {
             get { throw new System.NotImplementedException(); }
         }

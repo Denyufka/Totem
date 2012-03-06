@@ -3,14 +3,17 @@ namespace Totem.Library.Types
 {
     public class String : TotemType
     {
-        private static String type = new String();
-        internal static String Type { get { return type; } }
+        public override string Name
+        {
+            get { return "String"; }
+        }
 
-        private String()
+        public String()
         {
             MapProperty("length", GetLength, null);
 
             MapFunction("toUpperCase", ToUpperCase);
+            MapFunction("toLowerCase", ToLowerCase);
         }
 
         public static TotemNumber GetLength(TotemValue str)
@@ -21,6 +24,11 @@ namespace Totem.Library.Types
         public static TotemString ToUpperCase(TotemArguments args)
         {
             return new TotemString(((TotemString)args.ThisObject).Value.ToUpper());
+        }
+
+        public static TotemString ToLowerCase(TotemArguments args)
+        {
+            return new TotemString(((TotemString)args.ThisObject).Value.ToLower());
         }
     }
 }

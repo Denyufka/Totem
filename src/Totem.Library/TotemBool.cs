@@ -17,9 +17,14 @@ namespace Totem.Library
             get { return new TotemBool(value); }
         }
 
-        public override TotemType TotemType
+        public override TotemType Type
         {
             get { throw new System.NotImplementedException(); }
+        }
+
+        public override string ToString()
+        {
+            return value.ToString();
         }
     }
 }

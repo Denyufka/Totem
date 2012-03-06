@@ -1,10 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Totem.Library
 {
-    public class TotemType
+    public abstract class TotemType : TotemValue
     {
         private Dictionary<string, TotemProperty> properties = new Dictionary<string, TotemProperty>();
+
+        public abstract string Name { get; }
 
         protected TotemType()
         {
@@ -24,7 +27,7 @@ namespace Totem.Library
         {
             var prop = new TotemProperty();
             prop.Type = TotemPropertyType.Value;
-            var clrFunction = new ClrFunction(propName, function);
+            var clrFunction = new ClrMethod(propName, function);
             prop.Value = clrFunction;
             prop.Flags = TotemPropertyFlags.ReadOnly;
             properties.Add(propName, prop);
@@ -41,6 +44,49 @@ namespace Totem.Library
                     return prop.Value;
             }
             return TotemValue.Undefined;
+        }
+
+        public override TotemValue ByTotemValue
+        {
+            get { return this; }
+        }
+
+        public override TotemType Type
+        {
+            get
+            {
+                return TotemTypeType.Instance;
+            }
+        }
+
+        #region TypeType
+        private class TotemTypeType : TotemType
+        {
+            public static TotemTypeType Instance = new TotemTypeType();
+
+            public override string Name
+            {
+                get { return "TotemType"; }
+            }
+
+            public TotemTypeType()
+            {
+
+            }
+        }
+        #endregion
+
+        private static Dictionary<Type, TotemType> types = new Dictionary<Type, TotemType>();
+        public static TotemType Resolve<TType>()
+            where TType : TotemType, new()
+        {
+            TotemType type;
+            if (!types.TryGetValue(typeof(TType), out type))
+            {
+                type = new TType();
+                types.Add(typeof(TType), type);
+            }
+            return type;
         }
     }
 }

@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace Totem.Library
 {
-    public class TotemEnvironment
+    public class TotemScope
     {
-        private readonly TotemEnvironment parent;
+        private readonly TotemScope parent;
         private readonly Dictionary<string, TotemValue> values;
-        public TotemEnvironment(TotemEnvironment parent)
+        public TotemScope(TotemScope parent)
         {
             this.parent = parent;
             this.values = new Dictionary<string, TotemValue>();
@@ -37,12 +37,12 @@ namespace Totem.Library
         }
 
         private static TotemGlobal global = new TotemGlobal();
-        public static TotemEnvironment Global
+        public static TotemScope Global
         {
             get { return global; }
         }
 
-        private class TotemGlobal : TotemEnvironment
+        private class TotemGlobal : TotemScope
         {
             public TotemGlobal()
                 : base(null)
@@ -52,12 +52,12 @@ namespace Totem.Library
 
             internal override void Declare(string name)
             {
-                throw new InvalidOperationException("Can't declare variable on global scope.");
+                throw new InvalidOperationException("Can't declare variable " + name + " on global scope.");
             }
 
             internal override void Set(string name, TotemValue value)
             {
-                throw new InvalidOperationException("Can't change global values.");
+                throw new InvalidOperationException("Can't change global value " + name + ".");
             }
 
             internal override TotemValue Get(string name)

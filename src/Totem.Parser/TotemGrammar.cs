@@ -2,7 +2,7 @@
 
 namespace Totem.Compiler
 {
-    [Language("Totem", "0.5", "A totem parser")]
+    [Language("Totem", "0.7", "A totem parser")]
     public partial class TotemGrammar : Irony.Parsing.Grammar
     {
         public TotemGrammar()
@@ -28,6 +28,8 @@ namespace Totem.Compiler
             var dot = ToTerm(".", "dot");
             var lt = ToTerm("<", "less");
             var gt = ToTerm(">", "greater");
+            var lte = ToTerm("<=", "less then or equal");
+            var gte = ToTerm(">=", "greater then or equal");
             var lsbr = ToTerm("[", "left square bracket");
             var rsbr = ToTerm("]", "right square bracket");
             var lpr = ToTerm("(", "left parantesis");
@@ -49,6 +51,9 @@ namespace Totem.Compiler
             var function = ToTerm("function", "function");
             var @if = ToTerm("if", "if");
             var @else = ToTerm("else", "else");
+            var @for = ToTerm("for", "for");
+            var @break = ToTerm("break", "break");
+            var @continue = ToTerm("continue", "continue");
             #endregion
 
             #region 2. Non Terminals
@@ -57,6 +62,7 @@ namespace Totem.Compiler
             #endregion
             #region 2.1 Expressions
             var Expr = new NonTerminal("Expr"/*, typeof(Expr)*/);
+            var ExprOpt = new NonTerminal("ExprOpt");
             var ParenExpr = new NonTerminal("ParenExpr");
             var MemberExpr = new NonTerminal("MemberExpr");
             var QualifiedName = new NonTerminal("QualifiedName");
@@ -105,6 +111,11 @@ namespace Totem.Compiler
 
             var FlowControlStmt = new NonTerminal("FlowControlStmt"/*, typeof(FlowControlStmt)*/);
             var IfElseStmt = new NonTerminal("IfElseStmt");
+            var ForStmt = new NonTerminal("ForStmt");
+
+            var ForInitializer = new NonTerminal("ForInitializer");
+            var ForInitializerOpt = new NonTerminal("ForInitializerOpt");
+
             #endregion
 
             #region 2.4 Program and Functions
@@ -131,6 +142,7 @@ namespace Totem.Compiler
             Parameter.Rule = identifier + InitializerOpt;
 
             Expr.Rule = ConstExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr;// | NewExpr;
+            ExprOpt.Rule = Empty | Expr;
             ParenExpr.Rule = lpr + Expr + rpr;
             MemberExpr.Rule = Expr + dot + identifier;
 
@@ -142,7 +154,7 @@ namespace Totem.Compiler
 
             NewExpr.Rule = @new + Expr + FunctionCall;
 
-            BinOp.Rule = ToTerm("+") | "-" | lt | gt;
+            BinOp.Rule = ToTerm("+") | "-" | lt | gt | lte | gte | "==" | "!=" | "*" | "/";
             LUnOp.Rule = ToTerm("-") | "!" | @new;
             AssignOp.Rule = ToTerm("=") | "+=" | "-=";
             PostOp.Rule = ToTerm("--") | "++";
@@ -166,17 +178,24 @@ namespace Totem.Compiler
                 | FunctionCallExpr + semi;
             FlowControlStmt.Rule = @return + semi
                 | @return + Expr + semi
-                | @throw + Expr + semi;
+                | @throw + Expr + semi
+                | @break + semi
+                | @continue + semi;
 
             Statement.Rule = semi // Empty statement
                 | Block
                 | ExprStmt
                 | VarStmt
                 | IfElseStmt
+                | ForStmt
                 | FlowControlStmt;
 
             IfElseStmt.Rule = @if + Condition + Statement
                 | @if + Condition + Statement + @else + Statement;
+
+            ForStmt.Rule = @for + lpr + ForInitializerOpt + semi + ExprOpt + semi + ExprOpt + rpr + Statement;
+            ForInitializer.Rule = var + VarExprList | Expr;
+            ForInitializerOpt.Rule = Empty | ForInitializer;
 
             StmtList.Rule = MakeStarRule(StmtList, null, Statement);
 

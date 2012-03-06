@@ -5,7 +5,7 @@ namespace Totem.Library.Functions
 {
     public class Print : TotemFunction
     {
-        public Print(TotemEnvironment env)
+        public Print(TotemScope env)
             : base(env, "print", new TotemParameter[] { })
         {
 
