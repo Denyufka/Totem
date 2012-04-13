@@ -12,10 +12,10 @@ namespace Totem.Compiler
             var tree = parser.Parse(new StreamReader(File.OpenRead("test.pole")).ReadToEnd(), "test.pole");
             if (!tree.HasErrors())
             {
-                var generator = new Generator("test");
+                var generator = new Generator("test", Path.Combine(Environment.CurrentDirectory, "test.exe"), tg);
                 var rootNode = tree.Root;
                 generator.GenerateProgram(rootNode);
-                generator.Save(Environment.CurrentDirectory + "\\test.exe");
+                generator.Save();
             }
             else
             {

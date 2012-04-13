@@ -48,6 +48,7 @@ namespace Totem.Library
                 : base(null)
             {
                 values.Add("print", new Functions.Print(this));
+                values.Add("String", TotemType.Resolve<Types.String>());
             }
 
             internal override void Declare(string name)

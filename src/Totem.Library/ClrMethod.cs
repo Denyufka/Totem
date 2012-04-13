@@ -3,18 +3,17 @@ namespace Totem.Library
 {
     public class ClrMethod : TotemMethod
     {
-        private Function function;
+        private Method method;
 
-        public ClrMethod(string name, Function function)
-            : base(TotemScope.Global, name, new TotemParameter[0])
+        public ClrMethod(string name, TotemValue @this, Method method)
+            : base(@this, TotemScope.Global, name, new TotemParameter[0])
         {
-            this.function = function;
+            this.method = method;
         }
 
-        protected override TotemValue TotemRun()
+        public override TotemValue Execute(TotemArguments arguments)
         {
-            var args = (TotemArguments)LocalGet("arguments");
-            return function(args);
+            return method(@this, arguments);
         }
     }
 }

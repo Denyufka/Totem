@@ -16,6 +16,7 @@ namespace Totem.Library
     public delegate TotemValue PropertyGetter(TotemValue @this);
     public delegate void PropertySetter(TotemValue @this, TotemValue value);
     public delegate TotemValue Function(TotemArguments args);
+    public delegate TotemValue Method(TotemValue @this, TotemArguments args);
 
     internal class TotemProperty
     {

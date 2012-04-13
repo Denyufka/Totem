@@ -40,7 +40,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ClrFunction.cs" />
     <Compile Include="ClrMethod.cs" />
     <Compile Include="Functions\Print.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -57,7 +56,12 @@
     <Compile Include="TotemType.cs" />
     <Compile Include="TotemUndefined.cs" />
     <Compile Include="TotemValue.cs" />
+    <Compile Include="Types\Function.cs" />
+    <Compile Include="Types\Null.cs" />
+    <Compile Include="Types\Object.cs" />
     <Compile Include="Types\String.cs" />
+    <Compile Include="Types\Totem.cs" />
+    <Compile Include="Types\Undefined.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

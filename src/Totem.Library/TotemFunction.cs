@@ -12,7 +12,7 @@ namespace Totem.Library
 
         public override TotemValue Execute(TotemArguments arguments)
         {
-            arguments = arguments ?? new TotemArguments(null);
+            arguments = arguments ?? new TotemArguments();
             using (var scope = new ScopeWrapper(this))
             {
                 scope.Declare("arguments");
@@ -86,7 +86,7 @@ namespace Totem.Library
 
         public override TotemType Type
         {
-            get { throw new NotImplementedException(); }
+            get { return TotemType.Resolve<Types.Function>(); }
         }
 
         public class ScopeWrapper : TotemScope, IDisposable

@@ -22,7 +22,7 @@ namespace Totem.Library
 
         public override TotemType Type
         {
-            get { throw new System.NotImplementedException(); }
+            get { return TotemType.Resolve<Types.Null>(); }
         }
     }
 }

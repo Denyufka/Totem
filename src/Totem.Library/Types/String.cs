@@ -12,8 +12,9 @@ namespace Totem.Library.Types
         {
             MapProperty("length", GetLength, null);
 
-            MapFunction("toUpperCase", ToUpperCase);
-            MapFunction("toLowerCase", ToLowerCase);
+            MapMethod("toUpperCase", ToUpperCase);
+            MapMethod("toLowerCase", ToLowerCase);
+            MapMethod("toString", ToString);
         }
 
         public static TotemNumber GetLength(TotemValue str)
@@ -21,14 +22,19 @@ namespace Totem.Library.Types
             return new TotemNumber(((TotemString)str).Value.Length);
         }
 
-        public static TotemString ToUpperCase(TotemArguments args)
+        public static TotemString ToUpperCase(TotemValue str, TotemArguments args)
         {
-            return new TotemString(((TotemString)args.ThisObject).Value.ToUpper());
+            return new TotemString(((TotemString)str).Value.ToUpper());
         }
 
-        public static TotemString ToLowerCase(TotemArguments args)
+        public static TotemString ToLowerCase(TotemValue str, TotemArguments args)
         {
-            return new TotemString(((TotemString)args.ThisObject).Value.ToLower());
+            return new TotemString(((TotemString)str).Value.ToLower());
+        }
+
+        public static TotemString ToString(TotemValue str, TotemArguments args)
+        {
+            return new TotemString(((TotemString)str).Value);
         }
     }
 }

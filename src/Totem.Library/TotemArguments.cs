@@ -11,16 +11,9 @@ namespace Totem.Library
             public TotemValue Value { get; set; }
         }
         private readonly List<TotemArgument> args = new List<TotemArgument>();
-        private readonly TotemValue thisObject;
 
-        public TotemArguments(TotemValue thisObject)
+        public TotemArguments()
         {
-            this.thisObject = thisObject;
-        }
-
-        public TotemValue ThisObject
-        {
-            get { return thisObject; }
         }
 
         public bool IsSet(int pos)

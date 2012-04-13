@@ -8,13 +8,20 @@ namespace Totem.Library
         private Dictionary<string, TotemProperty> properties = new Dictionary<string, TotemProperty>();
 
         public abstract string Name { get; }
+        public virtual TotemType Parent
+        {
+            get
+            {
+                return TotemType.Resolve<Types.Object>();
+            }
+        }
 
         protected TotemType()
         {
 
         }
 
-        protected void MapProperty(string propName, PropertyGetter getter, PropertySetter setter)
+        protected internal void MapProperty(string propName, PropertyGetter getter, PropertySetter setter)
         {
             var prop = new TotemProperty();
             prop.Type = TotemPropertyType.Property;
@@ -23,27 +30,38 @@ namespace Totem.Library
             properties.Add(propName, prop);
         }
 
-        protected void MapFunction(string propName, Function function)
+        protected internal void MapMethod(string propName, Method function)
         {
             var prop = new TotemProperty();
-            prop.Type = TotemPropertyType.Value;
-            var clrFunction = new ClrMethod(propName, function);
-            prop.Value = clrFunction;
+            prop.Type = TotemPropertyType.Property;
+            prop.Getter = @this => new ClrMethod(propName, @this, function);
             prop.Flags = TotemPropertyFlags.ReadOnly;
             properties.Add(propName, prop);
         }
 
-        public virtual TotemValue GetProp(TotemValue @this, string propName)
+        public virtual TotemValue GetTypeProp(TotemValue @this, string propName)
         {
-            if (properties.ContainsKey(propName))
-            {
-                var prop = properties[propName];
-                if (prop.Type == TotemPropertyType.Property)
-                    return prop.Getter(@this);
-                else
-                    return prop.Value;
-            }
-            return TotemValue.Undefined;
+            TotemProperty prop;
+            if (!properties.TryGetValue(propName, out prop))
+                return Object.ReferenceEquals(Parent, null) ? TotemValue.Undefined : Parent.GetTypeProp(@this, propName);
+
+            if (prop.Type == TotemPropertyType.Property)
+                return prop.Getter(@this);
+            else
+                return prop.Value;
+        }
+
+        public virtual bool SetTypeProp(TotemValue @this, string propName, TotemValue value)
+        {
+            TotemProperty prop;
+            if (!properties.TryGetValue(propName, out prop))
+                return !Object.ReferenceEquals(Parent, null) && Parent.SetTypeProp(@this, propName, value);
+
+            if (prop.Type == TotemPropertyType.Property)
+                prop.Setter(@this, value);
+            else
+                return false;
+            return true;
         }
 
         public override TotemValue ByTotemValue
@@ -55,26 +73,9 @@ namespace Totem.Library
         {
             get
             {
-                return TotemTypeType.Instance;
+                return TotemType.Resolve<Types.Totem>();
             }
         }
-
-        #region TypeType
-        private class TotemTypeType : TotemType
-        {
-            public static TotemTypeType Instance = new TotemTypeType();
-
-            public override string Name
-            {
-                get { return "TotemType"; }
-            }
-
-            public TotemTypeType()
-            {
-
-            }
-        }
-        #endregion
 
         private static Dictionary<Type, TotemType> types = new Dictionary<Type, TotemType>();
         public static TotemType Resolve<TType>()

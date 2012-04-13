@@ -25,9 +25,18 @@ namespace Totem.Library
             get { return new TotemString(value); }
         }
 
-        public override string ToString()
+        public override TotemValue Add(TotemValue other)
         {
-            return value;
+            if (other.GetType() == typeof(TotemString))
+                return new TotemString(value + ((TotemString)other).Value);
+            return base.Add(other);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!object.ReferenceEquals(obj, null) && obj.GetType() == typeof(TotemString))
+                return ((TotemString)obj).Value == value;
+            return base.Equals(obj);
         }
     }
 }

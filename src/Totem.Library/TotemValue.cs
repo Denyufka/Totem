@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Totem.Library
 {
     public abstract class TotemValue
     {
+        private Dictionary<string, TotemValue> properties = new Dictionary<string, TotemValue>();
+
         public static TotemValue Undefined { get { return TotemUndefined.Value; } }
         public static TotemValue Null { get { return TotemNull.Value; } }
 
@@ -18,7 +21,22 @@ namespace Totem.Library
 
         public virtual TotemValue GetProp(string name)
         {
-            return Type.GetProp(this, name);
+            TotemValue ret;
+            if (!properties.TryGetValue(name, out ret))
+            {
+                ret = Type.GetTypeProp(this, name);
+                if (!Object.ReferenceEquals(ret, TotemValue.Undefined) && !Object.ReferenceEquals(ret, TotemValue.Null))
+                    properties.Add(name, ret);
+            }
+            return ret;
+        }
+
+        public virtual void SetProp(string name, TotemValue value)
+        {
+            if (!Type.SetTypeProp(this, name, value))
+            {
+                properties[name] = value;
+            }
         }
 
         public virtual TotemValue Add(TotemValue other)
@@ -142,6 +160,11 @@ namespace Totem.Library
                 && !(value is TotemNull)
                 && !(value is TotemNumber && ((TotemNumber)value).IntValue == 0)
                 && !(value is TotemBool && !((TotemBool)value).Value);
+        }
+
+        public override string ToString()
+        {
+            return ((TotemString)Type.GetTypeProp(this, "toString").Execute(new TotemArguments())).Value;
         }
     }
 }

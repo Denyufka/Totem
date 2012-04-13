@@ -2,9 +2,15 @@
 
 namespace Totem.Compiler
 {
-    [Language("Totem", "0.7", "A totem parser")]
+    [Language("Totem", "0.8", "A totem parser")]
     public partial class TotemGrammar : Irony.Parsing.Grammar
     {
+        public readonly KeyTerm semi;
+        public readonly KeyTerm @return;
+
+        public readonly NonTerminal Parameter;
+
+        public readonly NonTerminal FlowControlStmt;
         public TotemGrammar()
         {
             #region Lexical structure
@@ -24,36 +30,38 @@ namespace Totem.Compiler
 
             // Symbols
             #region Terminals
-            var @is = ToTerm("is", "is");
-            var dot = ToTerm(".", "dot");
-            var lt = ToTerm("<", "less");
-            var gt = ToTerm(">", "greater");
-            var lte = ToTerm("<=", "less then or equal");
-            var gte = ToTerm(">=", "greater then or equal");
-            var lsbr = ToTerm("[", "left square bracket");
-            var rsbr = ToTerm("]", "right square bracket");
-            var lpr = ToTerm("(", "left parantesis");
-            var rpr = ToTerm(")", "right parantesis");
-            var lcbr = ToTerm("{", "left curly bracket");
-            var rcbr = ToTerm("}", "right curly bracket");
-            var comma = ToTerm(",", "comma");
-            var semi = ToTerm(";", "semicolon");
-            var colon = ToTerm(":", "colon");
+            var @is = ToTerm("is");
+            var dot = ToTerm(".");
+            var lt = ToTerm("<");
+            var gt = ToTerm(">");
+            var lte = ToTerm("<=");
+            var gte = ToTerm(">=");
+            var lsbr = ToTerm("[");
+            var rsbr = ToTerm("]");
+            var lpr = ToTerm("(");
+            var rpr = ToTerm(")");
+            var lcbr = ToTerm("{");
+            var rcbr = ToTerm("}");
+            var comma = ToTerm(",");
+            var qmark = ToTerm("?");
+            semi = ToTerm(";");
+            var colon = ToTerm(":");
+            var fatArrow = ToTerm("=>");
 
-            var @true = ToTerm("true", "true");
-            var @false = ToTerm("false", "false");
-            var @null = ToTerm("null", "null");
-            var undefined = ToTerm("undefined", "undefined");
-            var var = ToTerm("var", "var");
-            var @new = ToTerm("new", "new");
-            var @return = ToTerm("return", "return");
-            var @throw = ToTerm("throw", "throw");
-            var function = ToTerm("function", "function");
-            var @if = ToTerm("if", "if");
-            var @else = ToTerm("else", "else");
-            var @for = ToTerm("for", "for");
-            var @break = ToTerm("break", "break");
-            var @continue = ToTerm("continue", "continue");
+            var @true = ToTerm("true");
+            var @false = ToTerm("false");
+            var @null = ToTerm("null");
+            var undefined = ToTerm("undefined");
+            var var = ToTerm("var");
+            var @new = ToTerm("new");
+            @return = ToTerm("return");
+            var @throw = ToTerm("throw");
+            var function = ToTerm("function");
+            var @if = ToTerm("if");
+            var @else = ToTerm("else");
+            var @for = ToTerm("for");
+            var @break = ToTerm("break");
+            var @continue = ToTerm("continue");
             #endregion
 
             #region 2. Non Terminals
@@ -68,6 +76,7 @@ namespace Totem.Compiler
             var QualifiedName = new NonTerminal("QualifiedName");
             var ConstExpr = new NonTerminal("ConstExpr"/*, typeof(ConstExpr)*/);
             var BinExpr = new NonTerminal("BinExpr"/*, typeof(BinExpr)*/);
+            var TerExpr = new NonTerminal("TerExpr"/*, typeof(TerExpr)*/);
             var UnaryExpr = new NonTerminal("UnaryExpr"/*, typeof(UnaryExpr)*/);
             var AssignExpr = new NonTerminal("AssignExpr"/*, typeof(AssignExpr)*/);
             var FuncDefExpr = new NonTerminal("FuncDefExpr"/*, typeof(FuncDefExpr)*/);
@@ -80,7 +89,7 @@ namespace Totem.Compiler
             var FunctionCallExpr = new NonTerminal("FunctionCallExpr");
             var Argument = new NonTerminal("Argument"/*, typeof(Argument)*/);
             var ArgumentList = new NonTerminal("ArgumentList"/*, typeof(ArgumentList)*/);
-            var Parameter = new NonTerminal("Parameter"/*, typeof(Parameter)*/);
+            Parameter = new NonTerminal("Parameter"/*, typeof(Parameter)*/);
             var ParameterList = new NonTerminal("ParameterList"/* typeof(ParameterList)*/);
 
             var AssignOp = new NonTerminal("AssignOp");
@@ -109,7 +118,7 @@ namespace Totem.Compiler
             var StmtList = new NonTerminal("StmtList"/*, typeof(StmtList)*/);
             var FuncDefStmt = new NonTerminal("FuncDefStmt"/*, typeof(FuncDefStmt)*/);
 
-            var FlowControlStmt = new NonTerminal("FlowControlStmt"/*, typeof(FlowControlStmt)*/);
+            FlowControlStmt = new NonTerminal("FlowControlStmt"/*, typeof(FlowControlStmt)*/);
             var IfElseStmt = new NonTerminal("IfElseStmt");
             var ForStmt = new NonTerminal("ForStmt");
 
@@ -130,6 +139,7 @@ namespace Totem.Compiler
             ConstExpr.Rule = @true | @false | undefined | @null | @string | number;
 
             BinExpr.Rule = Expr + BinOp + Expr;
+            TerExpr.Rule = Expr + qmark + Expr + colon + Expr;
 
             UnaryExpr.Rule = LUnOp + Expr;
 
@@ -137,11 +147,15 @@ namespace Totem.Compiler
             AssignExpr.Rule = QualifiedName + AssignOp + Expr
                 | QualifiedName + PostOp;
 
-            FuncDefExpr.Rule = function + identifierOpt + lpr + ParameterList + rpr + Block;
+            FuncDefExpr.Rule = function + identifierOpt + lpr + ParameterList + rpr + Block
+                | identifier + fatArrow + Expr
+                | identifier + fatArrow + Statement
+                | lpr + ParameterList + rpr + fatArrow + Expr
+                | lpr + ParameterList + rpr + fatArrow + Statement;
             ParameterList.Rule = MakeStarRule(ParameterList, comma, Parameter);
             Parameter.Rule = identifier + InitializerOpt;
 
-            Expr.Rule = ConstExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr;// | NewExpr;
+            Expr.Rule = ConstExpr | TerExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr;// | NewExpr;
             ExprOpt.Rule = Empty | Expr;
             ParenExpr.Rule = lpr + Expr + rpr;
             MemberExpr.Rule = Expr + dot + identifier;
@@ -228,8 +242,8 @@ namespace Totem.Compiler
             RegisterOperators(8, "<<", ">>");
             RegisterOperators(9, "+", "-");
             RegisterOperators(10, "*", "/", "%");
-            RegisterOperators(-2, "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
             RegisterOperators(-1, "?");
+            RegisterOperators(-2, "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
             #endregion
 
             #region 6. Punctuation Symbols
