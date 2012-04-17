@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-
+﻿
 namespace Totem.Library.Types
 {
     public class Totem : TotemType
@@ -30,26 +28,23 @@ namespace Totem.Library.Types
 
         public static TotemValue Implement(TotemValue type, TotemArguments args)
         {
-            var fArg = args.First().Value;
-            var aArg = args.ElementAt(1).Value;
-            if (fArg.Type.GetType() == typeof(Types.String) && aArg.Type.GetType() == typeof(Types.Function))
+            var tt = (TotemType)type;
+            foreach (var arg in args)
             {
-                var tt = (TotemType)type;
-                var fn = (TotemFunction)aArg;
-                tt.MapMethod(fArg.ToString(), (@this, arguments) =>
+                if (!string.IsNullOrEmpty(arg.Name) && arg.Value.Type.GetType() == typeof(Types.Function))
                 {
-                    var a = new TotemArguments();
-                    a.Add(null, @this);
-                    foreach (var ar in arguments)
-                        a.Add(ar.Name, ar.Value);
-                    return fn.Execute(a);
-                });
-                return TotemValue.Undefined;
+                    var fn = (TotemFunction)arg.Value;
+                    tt.MapMethod(arg.Name, (@this, arguments) =>
+                    {
+                        var a = new TotemArguments();
+                        a.Add(null, @this);
+                        foreach (var ar in arguments)
+                            a.Add(ar.Name, ar.Value);
+                        return fn.Execute(a);
+                    });
+                }
             }
-            else
-            {
-                throw new InvalidOperationException("Can't implement anything but functions.");
-            }
+            return TotemValue.Undefined;
         }
     }
 }

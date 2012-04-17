@@ -28,6 +28,8 @@ namespace Totem.Compiler
         internal static IKType arguments;
         internal static IKType parameter;
         internal static IKType @bool;
+        internal static IKType map;
+        internal static IKType array;
         internal static IKType scope;
 
         internal static IKType arr_parameters;
@@ -49,6 +51,10 @@ namespace Totem.Compiler
         internal static IKCtor parameter_ctor;
         internal static IKCtor arguments_ctor;
         internal static IKMethod arguments_add;
+        internal static IKCtor map_ctor;
+        internal static IKMethod map_add;
+        internal static IKCtor array_ctor;
+        internal static IKMethod array_add;
 
         internal static IKMethod value_add;
         internal static IKMethod value_sub;
@@ -61,7 +67,10 @@ namespace Totem.Compiler
         internal static IKMethod value_lte;
         internal static IKMethod value_gte;
         internal static IKMethod value_incr;
+        internal static IKMethod value_decr;
         internal static IKMethod value_istrue;
+        internal static IKMethod value_lookup_get;
+        internal static IKMethod value_lookup_set;
 
         internal static IKCtor scope_ctor;
 
@@ -127,6 +136,8 @@ namespace Totem.Compiler
             arguments = Load(typeof(TotemArguments));
             parameter = Load(typeof(TotemParameter));
             @bool = Load(typeof(TotemBool));
+            map = Load(typeof(TotemMap));
+            array = Load(typeof(TotemArray));
             scope = Load(typeof(TotemFunction.ScopeWrapper));
 
             arr_parameters = Load(typeof(TotemParameter[]));
@@ -166,7 +177,10 @@ namespace Totem.Compiler
             value_lte = Load(typeof(TotemValue)).GetMethod("op_LessThanOrEqual", r.BindingFlags.Static | r.BindingFlags.Public);
             value_gte = Load(typeof(TotemValue)).GetMethod("op_GreaterThanOrEqual", r.BindingFlags.Static | r.BindingFlags.Public);
             value_incr = Load(typeof(TotemValue)).GetMethod("op_Increment", r.BindingFlags.Static | r.BindingFlags.Public);
+            value_decr = Load(typeof(TotemValue)).GetMethod("op_Decrement", r.BindingFlags.Static | r.BindingFlags.Public);
             value_istrue = Load(typeof(TotemValue)).GetMethod("op_Explicit", r.BindingFlags.Static | r.BindingFlags.Public, null, r.CallingConventions.Standard, new IKType[] { Load(typeof(TotemValue)) }, null);
+            value_lookup_get = Load(typeof(TotemValue)).GetProperty("Item", value, new IKType[] { value }).GetGetMethod();
+            value_lookup_set = Load(typeof(TotemValue)).GetProperty("Item", value, new IKType[] { value }).GetSetMethod();
 
             scope_ctor = Load(typeof(TotemFunction.ScopeWrapper)).GetConstructor(new IKType[] { Load(typeof(TotemFunction)) });
 
@@ -176,6 +190,12 @@ namespace Totem.Compiler
             set_prop = Load(typeof(TotemValue)).GetMethod("SetProp");
 
             bool_ctor = Load(typeof(TotemBool)).GetConstructor(new IKType[] { Load(typeof(bool)) });
+
+            map_ctor = map.GetConstructor(IKType.EmptyTypes);
+            map_add = map.GetMethod("AddItem");
+
+            array_ctor = array.GetConstructor(IKType.EmptyTypes);
+            array_add = array.GetMethod("AddItem");
         }
 
         internal void GenerateProgram(ParseTreeNode rootNode)
@@ -609,8 +629,13 @@ namespace Totem.Compiler
                                 il.Add(ref current, Instruction.Create(OpCodes.Callvirt, function_local_get));
                                 il.Add(ref current, Instruction.Create(OpCodes.Dup));
                                 il.Add(ref current, Instruction.Create(OpCodes.Stloc, pn));
-                                // Increment and restore
-                                il.Add(ref current, Instruction.Create(OpCodes.Call, value_incr));
+                                // Increment/decrement and restore
+                                if (node.ChildNodes[1].Token.ValueString == "++")
+                                    il.Add(ref current, Instruction.Create(OpCodes.Call, value_incr));
+                                else if (node.ChildNodes[1].Token.ValueString == "--")
+                                    il.Add(ref current, Instruction.Create(OpCodes.Call, value_decr));
+                                else
+                                    throw new InvalidOperationException("??");
                                 il.Add(ref current, Instruction.Create(OpCodes.Stloc, pn2));
                                 il.Add(ref current, Instruction.Create(OpCodes.Ldarg_0));
                                 il.Add(ref current, Instruction.Create(OpCodes.Ldstr, node.ChildNodes[0].Token.ValueString));
@@ -633,6 +658,27 @@ namespace Totem.Compiler
                             }
                             else
                             {
+                                var pn2 = GetSVar(value);
+                                GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
+
+                            }
+                            break;
+                        case "ArrOpExpr":
+                            pn = GetSVar(value);
+                            if (node.ChildNodes.Count == 3) // a = b / a += b etc.
+                            {
+                                GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
+                                il.Add(ref start, Instruction.Create(OpCodes.Stloc, pn));
+                                GenerateExpression(il, ref start, ref current, node.ChildNodes[0].ChildNodes[0]);
+                                GenerateExpression(il, ref start, ref current, node.ChildNodes[0].ChildNodes[1]);
+                                il.Add(ref current, Instruction.Create(OpCodes.Ldloc, pn));
+                                il.Add(ref current, Instruction.Create(OpCodes.Callvirt, value_lookup_set));
+                                il.Add(ref current, Instruction.Create(OpCodes.Ldloc, pn));
+                            }
+                            else
+                            {
+                                var pn2 = GetSVar(value);
+                                GenerateExpression(il, ref start, ref start, node.ChildNodes[2]);
 
                             }
                             break;
@@ -695,6 +741,41 @@ namespace Totem.Compiler
                     GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
                     il.Add(ref current, Instruction.Create(OpCodes.Ldstr, node.ChildNodes[2].Token.ValueString));
                     il.Add(ref current, Instruction.Create(OpCodes.Callvirt, get_prop));
+                    break;
+                case "ObjLitExpr":
+                    pn = GetSVar(map);
+                    il.Add(ref prev, Instruction.Create(OpCodes.Newobj, map_ctor));
+                    il.Add(ref prev, Instruction.Create(OpCodes.Stloc, pn));
+                    if (node.ChildNodes.Count > 0)
+                        foreach (var prop in node.ChildNodes[0].ChildNodes)
+                        {
+                            il.Add(ref prev, Instruction.Create(OpCodes.Ldloc, pn));
+                            il.Add(ref prev, Instruction.Create(OpCodes.Ldstr, prop.ChildNodes[0].Token.ValueString));
+                            il.Add(ref prev, Instruction.Create(OpCodes.Newobj, string_ctor));
+                            GenerateExpression(il, ref start, ref prev, prop.ChildNodes[1]);
+                            il.Add(ref prev, Instruction.Create(OpCodes.Callvirt, map_add));
+                        }
+                    il.Add(ref current, Instruction.Create(OpCodes.Ldloc, pn));
+                    start = prev;
+                    break;
+                case "ArrLitExpr":
+                    pn = GetSVar(array);
+                    il.Add(ref prev, Instruction.Create(OpCodes.Newobj, array_ctor));
+                    il.Add(ref prev, Instruction.Create(OpCodes.Stloc, pn));
+                    if (node.ChildNodes.Count > 0)
+                        foreach (var elm in node.ChildNodes[0].ChildNodes)
+                        {
+                            il.Add(ref prev, Instruction.Create(OpCodes.Ldloc, pn));
+                            GenerateExpression(il, ref start, ref prev, elm);
+                            il.Add(ref prev, Instruction.Create(OpCodes.Callvirt, array_add));
+                        }
+                    il.Add(ref current, Instruction.Create(OpCodes.Ldloc, pn));
+                    start = prev;
+                    break;
+                case "ArrOpExpr":
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[0]);
+                    GenerateExpression(il, ref start, ref current, node.ChildNodes[1]);
+                    il.Add(ref current, Instruction.Create(OpCodes.Callvirt, value_lookup_get));
                     break;
                 default:
                     throw new InvalidOperationException("Term " + node.Term.Name + " is not a valid expression term");
@@ -809,6 +890,17 @@ namespace Totem.Compiler
 
         private string MakeFunctionName(string name)
         {
+            if (name == "anonymous")
+            {
+                string nname;
+                var c = 0;
+                do
+                {
+                    nname = "Anonymous<" + (c++) + ">";
+                } while (fn_names.Contains(nname));
+                fn_names.Add(nname);
+                return nname;
+            }
             var mName = name[0].ToString().ToUpper() + name.Substring(1);
             int i = 0;
             while (fn_names.Contains(mName))

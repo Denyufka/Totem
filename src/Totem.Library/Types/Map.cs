@@ -1,15 +1,16 @@
 ﻿
 namespace Totem.Library.Types
 {
-    public class Function : TotemType
+    public class Map : TotemType
     {
         public override string Name
         {
-            get { return "Function"; }
+            get { return "Map"; }
         }
 
-        public Function()
+        public Map()
         {
+
         }
     }
 }

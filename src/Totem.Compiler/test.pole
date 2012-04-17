@@ -1,3 +1,5 @@
-﻿var fib = n => n < 2 ? n : fib(n - 1) + fib(n - 2);
-for(var i = 0; i < 10; i++)
-	print("fib_{0} = {1}", i + 1, fib(i + 1));
+﻿var arr = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+var lt10 = arr.filter(itm => itm < 10);
+print('lt10: {0}', lt10.length);
+var gt10 = arr.filter(itm => itm > 10);
+print('gt10: {0}', gt10.length);

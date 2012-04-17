@@ -2,7 +2,7 @@
 
 namespace Totem.Compiler
 {
-    [Language("Totem", "0.8", "A totem parser")]
+    [Language("Totem", "0.11", "A totem parser")]
     public partial class TotemGrammar : Irony.Parsing.Grammar
     {
         public readonly KeyTerm semi;
@@ -73,10 +73,13 @@ namespace Totem.Compiler
             var ExprOpt = new NonTerminal("ExprOpt");
             var ParenExpr = new NonTerminal("ParenExpr");
             var MemberExpr = new NonTerminal("MemberExpr");
+            var ArrOpExpr = new NonTerminal("ArrOpExpr");
             var QualifiedName = new NonTerminal("QualifiedName");
             var ConstExpr = new NonTerminal("ConstExpr"/*, typeof(ConstExpr)*/);
             var BinExpr = new NonTerminal("BinExpr"/*, typeof(BinExpr)*/);
             var TerExpr = new NonTerminal("TerExpr"/*, typeof(TerExpr)*/);
+            var ObjLitExpr = new NonTerminal("ObjLitExpr"/*, typeof(ObjLitExpr)*/);
+            var ArrLitExpr = new NonTerminal("ArrLitExpr"/*, typeof(ArrLitExpr)*/);
             var UnaryExpr = new NonTerminal("UnaryExpr"/*, typeof(UnaryExpr)*/);
             var AssignExpr = new NonTerminal("AssignExpr"/*, typeof(AssignExpr)*/);
             var FuncDefExpr = new NonTerminal("FuncDefExpr"/*, typeof(FuncDefExpr)*/);
@@ -84,6 +87,9 @@ namespace Totem.Compiler
             var VarExprList = new NonTerminal("VarExprList"/*, typeof(VarExprList)*/);
             var Initializer = new NonTerminal("Initializer"/*, typeof(Initializer)*/);
             var InitializerOpt = new NonTerminal("InitializerOpt");
+
+            var ObjLitProps = new NonTerminal("ObjLitProps");
+            var ObjLitProp = new NonTerminal("ObjLitProp");
 
             var FunctionCall = new NonTerminal("FunctionCall"/*, typeof(FunctionCall)*/);
             var FunctionCallExpr = new NonTerminal("FunctionCallExpr");
@@ -100,11 +106,9 @@ namespace Totem.Compiler
             #endregion
 
             #region 2.2 Qualified Names
-            var ExpressionList = new NonTerminal("ExpressionList"/*, typeof(ExpressionList)*/);
+            var ExprList = new NonTerminal("ExprList"/*, typeof(ExprList)*/);
 
             var NewExpr = new NonTerminal("NewExpr"/*, typeof(NewExpr)*/);
-
-            var ArrayResolution = new NonTerminal("ArrayResolution");
             #endregion
 
             #region 2.3 Statement
@@ -138,12 +142,19 @@ namespace Totem.Compiler
             #region 3.1 Expressions
             ConstExpr.Rule = @true | @false | undefined | @null | @string | number;
 
+            ObjLitProp.Rule = identifier + colon + Expr |
+                @string + colon + Expr;
+            ObjLitProps.Rule = MakeStarRule(ObjLitProps, comma, ObjLitProp);
+            ExprList.Rule = MakeStarRule(ExprList, comma, Expr);
+
             BinExpr.Rule = Expr + BinOp + Expr;
             TerExpr.Rule = Expr + qmark + Expr + colon + Expr;
+            ObjLitExpr.Rule = lcbr + ObjLitProps + rcbr;
+            ArrLitExpr.Rule = lsbr + ExprList + rsbr;
 
             UnaryExpr.Rule = LUnOp + Expr;
 
-            QualifiedName.Rule = MemberExpr | identifier;
+            QualifiedName.Rule = MemberExpr | ArrOpExpr | identifier;
             AssignExpr.Rule = QualifiedName + AssignOp + Expr
                 | QualifiedName + PostOp;
 
@@ -155,7 +166,7 @@ namespace Totem.Compiler
             ParameterList.Rule = MakeStarRule(ParameterList, comma, Parameter);
             Parameter.Rule = identifier + InitializerOpt;
 
-            Expr.Rule = ConstExpr | TerExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr;// | NewExpr;
+            Expr.Rule = ConstExpr | TerExpr | BinExpr | UnaryExpr | identifier | AssignExpr | FuncDefExpr | ParenExpr | FunctionCallExpr | MemberExpr | ArrOpExpr | ObjLitExpr | ArrLitExpr;// | NewExpr;
             ExprOpt.Rule = Empty | Expr;
             ParenExpr.Rule = lpr + Expr + rpr;
             MemberExpr.Rule = Expr + dot + identifier;
@@ -182,8 +193,7 @@ namespace Totem.Compiler
             Argument.Rule = Expr | identifier + colon + Expr | @string + colon + Expr;
 
             MemberExpr.Rule = Expr + dot + identifier;
-
-            ArrayResolution.Rule = lsbr + Expr + rsbr;
+            ArrOpExpr.Rule = Expr + lsbr + Expr + rsbr;
             #endregion
 
             #region 3.3 Statement
@@ -251,7 +261,7 @@ namespace Totem.Compiler
             MarkPunctuation(";", ",", "(", ")", "{", "}", "[", "]", ":");
             #endregion
 
-            MarkTransient(Element, Statement, InitializerOpt, Expr, ParenExpr, BinOp, LUnOp, AssignOp, PostOp, FunctionCall, QualifiedName);
+            MarkTransient(Element, Statement, InitializerOpt, Expr, ParenExpr, BinOp, LUnOp, AssignOp, PostOp, FunctionCall, QualifiedName, ObjLitProps, ExprList);
             //LanguageFlags = Irony.Parsing.LanguageFlags.CreateAst;
             #endregion
         }

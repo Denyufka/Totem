@@ -89,6 +89,18 @@ namespace Totem.Library
             throw new InvalidOperationException("Can't decrement a " + GetType().Name);
         }
 
+        public virtual TotemValue this[TotemValue key]
+        {
+            get
+            {
+                return TotemValue.Undefined;
+            }
+            set
+            {
+                throw new InvalidOperationException("Can't set lookup-items on a " + GetType().Name);
+            }
+        }
+
         public static TotemValue operator +(TotemValue left, TotemValue right)
         {
             return left.Add(right);

@@ -38,5 +38,10 @@ namespace Totem.Library
                 return ((TotemString)obj).Value == value;
             return base.Equals(obj);
         }
+
+        public override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
     }
 }
